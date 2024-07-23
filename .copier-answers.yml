@@ -1,0 +1,22 @@
+# Changes here will be overwritten by Copier
+AddAllcontributors: true
+AddCodeOfConduct: true
+AddContributionDocs: true
+AddCopierCI: true
+AddGitHubTemplates: true
+AddMacToCI: false
+AddPrecommit: true
+AddWinToCI: false
+AnswerStrategy: ask
+AuthorEmail: j.hidding@esciencecenter.nl
+AuthorName: Johan Hidding
+Indentation: 4
+JuliaMinVersion: '1.10'
+License: Apache-2.0
+PackageName: ModuleMixins
+PackageOwner: jhidding
+PackageUUID: 2b5f0a26-aae2-5c4c-af55-bc6d20297121
+RunJuliaNightlyOnCI: true
+UseCirrusCI: false
+_commit: v0.9.0
+_src_path: https://github.com/abelsiqueira/BestieTemplate.jl
