@@ -1,0 +1,60 @@
+{
+  "version": "2.1.0",
+  "files": [
+    {
+      "path": ".entangled/tasks.json",
+      "deps": [],
+      "modified": "2024-07-23T09:34:48.862085",
+      "hexdigest": "7bb9de66306158195a10e724e13fbcd2d067c37706b4f1bc3f615737edc42274",
+      "size": 16
+    },
+    {
+      "path": "docs/src/95-reference.md",
+      "deps": null,
+      "modified": "2024-07-23T07:35:47.103011",
+      "hexdigest": "6e3ec6c55da8120da528b179c702ff70788ac49a8d367e8ba72ea948594d64db",
+      "size": 184
+    },
+    {
+      "path": "docs/src/index.md",
+      "deps": null,
+      "modified": "2024-07-23T07:35:47.479013",
+      "hexdigest": "ba4cf137273e49ea90abf467dcc1223a0d9e65dde98cfd4cfc7a258b00282bff",
+      "size": 407
+    },
+    {
+      "path": "docs/src/90-contributing.md",
+      "deps": null,
+      "modified": "2024-07-23T07:35:47.823015",
+      "hexdigest": "eccd531b83484628f199d6bf5a87685228fab6d3b8c157df13f8e8f01b0ae59a",
+      "size": 1166
+    },
+    {
+      "path": "docs/src/91-developer.md",
+      "deps": null,
+      "modified": "2024-07-23T07:35:48.390018",
+      "hexdigest": "e80e885e12fa9e160dbf851892046cdc8c814545ba66cd752c85da24f4364b16",
+      "size": 5970
+    },
+    {
+      "path": "docs/src/50-implementation.md",
+      "deps": null,
+      "modified": "2024-07-23T10:03:37.783952",
+      "hexdigest": "3db27aa9f7aa7f4b9196c09bca1bd2dd184ccef1865cd44c7b85e01c913c0385",
+      "size": 4386
+    },
+    {
+      "path": "src/ModuleMixins.jl",
+      "deps": [
+        "docs/src/50-implementation.md"
+      ],
+      "modified": "2024-07-23T10:04:36.976402",
+      "hexdigest": "64258d5a3101133298444bcd213e6b32f646105acc436d2a383bf9a8c07fb72e",
+      "size": 108
+    }
+  ],
+  "source": [],
+  "target": [
+    "src/ModuleMixins.jl"
+  ]
+}

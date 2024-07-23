@@ -1,11 +1,7 @@
+# ~/~ begin <<docs/src/50-implementation.md#src/ModuleMixins.jl>>[init]
 module ModuleMixins
 
-"""
-    hi = hello_world()
-A simple function to return "Hello, World!"
-"""
-function hello_world()
-    return "Hello, World!"
-end
+
 
 end
+# ~/~ end
