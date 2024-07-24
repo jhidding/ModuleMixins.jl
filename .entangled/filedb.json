@@ -39,22 +39,32 @@
     {
       "path": "docs/src/50-implementation.md",
       "deps": null,
-      "modified": "2024-07-23T10:03:37.783952",
-      "hexdigest": "3db27aa9f7aa7f4b9196c09bca1bd2dd184ccef1865cd44c7b85e01c913c0385",
-      "size": 4386
+      "modified": "2024-07-24T13:19:18.720985",
+      "hexdigest": "03ddc77d6706c4c6266e48f90a96251c68e1da2d0009e91937ca22516604138e",
+      "size": 12277
     },
     {
       "path": "src/ModuleMixins.jl",
       "deps": [
         "docs/src/50-implementation.md"
       ],
-      "modified": "2024-07-23T10:04:36.976402",
-      "hexdigest": "64258d5a3101133298444bcd213e6b32f646105acc436d2a383bf9a8c07fb72e",
-      "size": 108
+      "modified": "2024-07-24T13:19:18.735985",
+      "hexdigest": "d112963393b574c0e05d775c5a13debded0311ecc3654c1947ec22add474f7ba",
+      "size": 4850
+    },
+    {
+      "path": "test/runtests.jl",
+      "deps": [
+        "docs/src/50-implementation.md"
+      ],
+      "modified": "2024-07-24T11:08:07.739633",
+      "hexdigest": "891eefd984c2964d1ad1bd4b18f0febc81c65ab55376ee93a2195c0e056b083c",
+      "size": 3102
     }
   ],
   "source": [],
   "target": [
-    "src/ModuleMixins.jl"
+    "src/ModuleMixins.jl",
+    "test/runtests.jl"
   ]
 }
