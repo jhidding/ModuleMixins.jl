@@ -24,7 +24,16 @@ To facilitate testing, we need to be able to compare syntax. We use the `clean` 
 ```julia
 #| file: test/runtests.jl
 using Test
-using ModuleMixins: @spec, @spec_mixin, @spec_using, @mixin, Struct, parse_struct, define_struct, Pass, @compose
+using ModuleMixins:
+    @spec,
+    @spec_mixin,
+    @spec_using,
+    @mixin,
+    Struct,
+    parse_struct,
+    define_struct,
+    Pass,
+    @compose
 using MacroTools: prewalk, rmlines
 
 clean(expr) = prewalk(rmlines, expr)
@@ -43,7 +52,7 @@ The `@spec` macro creates a new module, and stores its own AST inside that modul
 ```julia
 #| id: test-toplevel
 @spec module MySpec
-    const msg = "hello"
+const msg = "hello"
 end
 ```
 
@@ -67,11 +76,13 @@ The `@spec` macro is used to specify the structs of a model component.
 Create a spec. The `@spec` macro itself doesn't perform any operations other than creating a module and storing its own AST as `const *name*.AST`.
 """
 macro spec(mod)
-    @assert @capture(mod, module name_ body__ end)
+    @assert @capture(mod, module name_
+    body__
+    end)
 
     esc(Expr(:toplevel, :(module $name
-        $(body...)
-        const AST = $body
+    $(body...)
+    const AST = $body
     end)))
 end
 ```
@@ -83,10 +94,10 @@ We now add the `@mixin` syntax. This still doesn't do anything, other than stori
 ```julia
 #| id: test-toplevel
 @spec_mixin module MyMixinSpecOne
-    @mixin A
+@mixin A
 end
 @spec_mixin module MyMixinSpecMany
-    @mixin A, B, C
+@mixin A, B, C
 end
 ```
 
@@ -117,14 +128,16 @@ The `QuoteNode` calls prevent the symbols from being evaluated at macro expansio
 #| id: spec
 
 macro spec_mixin(mod)
-    @assert @capture(mod, module name_ body__ end)
+    @assert @capture(mod, module name_
+    body__
+    end)
 
     esc(Expr(:toplevel, :(module $name
-        import ..@mixin
+    import ..@mixin
 
-        $(body...)
+    $(body...)
 
-        const AST = $body
+    const AST = $body
     end)))
 end
 ```
@@ -136,22 +149,22 @@ I can't think of any usecase where a `@mixin A`, doesn't also mean `using ..A`. 
 ```julia
 #| id: test-toplevel
 @spec_using module SU_A
-    const X = :hello
-    export X
+const X = :hello
+export X
 end
 
 @spec_using module SU_B
-    @mixin SU_A
-    const Y = X
+@mixin SU_A
+const Y = X
 end
 
 @spec_using module SU_C
-    const Z = :goodbye
+const Z = :goodbye
 end
 
 @spec_using module SU_D
-    @mixin SU_A
-    @mixin SU_B, SU_C
+@mixin SU_A
+@mixin SU_B, SU_C
 end
 ```
 
@@ -198,10 +211,8 @@ struct CompositePass <: Pass
     parts::Vector{Pass}
 end
 
-Base.:+(a::CompositePass...) =
-    CompositePass(splat(vcat)(getfield.(a, :parts)))
-Base.convert(::Type{CompositePass}, a::Pass) =
-    CompositePass([a])
+Base.:+(a::CompositePass...) = CompositePass(splat(vcat)(getfield.(a, :parts)))
+Base.convert(::Type{CompositePass}, a::Pass) = CompositePass([a])
 Base.:+(a::Pass...) = splat(+)(convert.(CompositePass, a))
 
 function pass(cp::CompositePass, expr)
@@ -234,7 +245,11 @@ function pass(m::MixinPass, expr)
 
     if @capture(deps, (multiple_deps__,))
         append!(m.items, multiple_deps)
-        :(begin $([:(using ..$d) for d in multiple_deps]...) end)
+        :(
+            begin
+                $([:(using ..$d) for d in multiple_deps]...)
+            end
+        )
     else
         push!(m.items, deps)
         :(using ..$deps)
@@ -242,15 +257,17 @@ function pass(m::MixinPass, expr)
 end
 
 macro spec_using(mod)
-    @assert @capture(mod, module name_ body__ end)
+    @assert @capture(mod, module name_
+    body__
+    end)
 
     parents = MixinPass([])
     clean_body = walk(parents, body)
 
     esc(Expr(:toplevel, :(module $name
-        $(clean_body...)
-        const AST = $body
-        const PARENTS = [$(QuoteNode.(parents.items)...)]
+    $(clean_body...)
+    const AST = $body
+    const PARENTS = [$(QuoteNode.(parents.items)...)]
     end)))
 end
 ```
@@ -262,10 +279,19 @@ We'll convert `struct` syntax into collectable data, then convert that back into
 ```julia
 #| id: test
 cases = Dict(
-    :(struct A x end) => Struct(false, false, :A, nothing, [:x]),
-    :(mutable struct A x end) => Struct(false, true, :A, nothing, [:x]),
-    :(@kwdef struct A x end) => Struct(true, false, :A, nothing, [:x]),
-    :(@kwdef mutable struct A x end) => Struct(true, true, :A, nothing, [:x]))
+    :(struct A
+        x::Any
+    end) => Struct(false, false, :A, nothing, [:x]),
+    :(mutable struct A
+        x::Any
+    end) => Struct(false, true, :A, nothing, [:x]),
+    :(@kwdef struct A
+        x::Any
+    end) => Struct(true, false, :A, nothing, [:x]),
+    :(@kwdef mutable struct A
+        x::Any
+    end) => Struct(true, true, :A, nothing, [:x]),
+)
 
 for (k, v) in pairs(cases)
     @testset "Struct mangling: $(join(split(string(clean(k))), " "))" begin
@@ -280,8 +306,12 @@ Each of these can have either just a `Symbol` for a name, or a `A <: B` expressi
 ```julia
 #| id: test
 @testset "Struct mangling abstracts" begin
-    @test parse_struct(:(struct A <: B x end)).abstract_type == :B
-    @test parse_struct(:(mutable struct A <: B x end)).abstract_type == :B
+    @test parse_struct(:(struct A <: B
+        x::Any
+    end)).abstract_type == :B
+    @test parse_struct(:(mutable struct A <: B
+        x::Any
+    end)).abstract_type == :B
 end
 ```
 
@@ -292,7 +322,7 @@ struct Struct
     use_kwdef::Bool
     is_mutable::Bool
     name::Symbol
-    abstract_type::Union{Symbol, Nothing}
+    abstract_type::Union{Symbol,Nothing}
     fields::Vector{Union{Expr,Symbol}}
 end
 
@@ -305,9 +335,11 @@ function parse_struct(expr)
     uses_kwdef = kw_struct_expr !== nothing
     struct_expr = uses_kwdef ? kw_struct_expr : struct_expr
 
-    @capture(struct_expr,
-        (struct name_ fields__ end) |
-        (mutable struct mut_name_ fields__ end)) || return
+    @capture(struct_expr, (struct name_
+        fields__::Any
+    end) | (mutable struct mut_name_
+        fields__::Any
+    end)) || return
 
     is_mutable = mut_name !== nothing
     sname = is_mutable ? mut_name : name
@@ -317,9 +349,7 @@ function parse_struct(expr)
 end
 
 function define_struct(s::Struct)
-    name = s.abstract_type !== nothing ?
-        :($(s.name) <: $(s.abstract_type)) :
-        s.name
+    name = s.abstract_type !== nothing ? :($(s.name) <: $(s.abstract_type)) : s.name
     sdef = if s.is_mutable
         :(mutable struct $name
             $(s.fields...)
@@ -340,23 +370,23 @@ Unfortunately now comes a big leap. We'll merge all struct definitions inside th
 ```julia
 #| id: test-toplevel
 module ComposeTest1
-    using ModuleMixins: @compose
+using ModuleMixins: @compose
 
-    @compose module A
-        struct S
-            a::Int
-        end
-    end
+@compose module A
+struct S
+    a::Int
+end
+end
 
-    @compose module B
-        struct S
-            b::Int
-        end
-    end
+@compose module B
+struct S
+    b::Int
+end
+end
 
-    @compose module AB
-        @mixin A, B
-    end
+@compose module AB
+@mixin A, B
+end
 end
 ```
 
@@ -391,7 +421,7 @@ function pass(p::CollectConstPass, expr)
 end
 
 struct CollectStructPass <: Pass
-    items::IdDict{Symbol, Struct}
+    items::IdDict{Symbol,Struct}
 end
 
 function pass(p::CollectStructPass, expr)
@@ -406,7 +436,9 @@ function pass(p::CollectStructPass, expr)
 end
 
 macro compose(mod)
-    @assert @capture(mod, module name_ body__ end)
+    @assert @capture(mod, module name_
+    body__
+    end)
 
     mixins = Symbol[]
     parents = MixinPass([])
@@ -429,12 +461,12 @@ macro compose(mod)
     clean_body = mixin(body)
 
     esc(Expr(:toplevel, :(module $name
-        $(usings.items...)
-        $(consts.items...)
-        $(define_struct.(values(structs.items))...)
-        $(clean_body...)
-        const AST = $body
-        const PARENTS = [$(QuoteNode.(parents.items)...)]
+    $(usings.items...)
+    $(consts.items...)
+    $(define_struct.(values(structs.items))...)
+    $(clean_body...)
+    const AST = $body
+    const PARENTS = [$(QuoteNode.(parents.items)...)]
     end)))
 end
 ```

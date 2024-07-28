@@ -16,11 +16,13 @@ export @compose
 Create a spec. The `@spec` macro itself doesn't perform any operations other than creating a module and storing its own AST as `const *name*.AST`.
 """
 macro spec(mod)
-    @assert @capture(mod, module name_ body__ end)
+    @assert @capture(mod, module name_
+    body__
+    end)
 
     esc(Expr(:toplevel, :(module $name
-        $(body...)
-        const AST = $body
+    $(body...)
+    const AST = $body
     end)))
 end
 # ~/~ end
@@ -28,14 +30,16 @@ end
 #| id: spec
 
 macro spec_mixin(mod)
-    @assert @capture(mod, module name_ body__ end)
+    @assert @capture(mod, module name_
+    body__
+    end)
 
     esc(Expr(:toplevel, :(module $name
-        import ..@mixin
+    import ..@mixin
 
-        $(body...)
+    $(body...)
 
-        const AST = $body
+    const AST = $body
     end)))
 end
 # ~/~ end
@@ -52,10 +56,8 @@ struct CompositePass <: Pass
     parts::Vector{Pass}
 end
 
-Base.:+(a::CompositePass...) =
-    CompositePass(splat(vcat)(getfield.(a, :parts)))
-Base.convert(::Type{CompositePass}, a::Pass) =
-    CompositePass([a])
+Base.:+(a::CompositePass...) = CompositePass(splat(vcat)(getfield.(a, :parts)))
+Base.convert(::Type{CompositePass}, a::Pass) = CompositePass([a])
 Base.:+(a::Pass...) = splat(+)(convert.(CompositePass, a))
 
 function pass(cp::CompositePass, expr)
@@ -87,7 +89,11 @@ function pass(m::MixinPass, expr)
 
     if @capture(deps, (multiple_deps__,))
         append!(m.items, multiple_deps)
-        :(begin $([:(using ..$d) for d in multiple_deps]...) end)
+        :(
+            begin
+                $([:(using ..$d) for d in multiple_deps]...)
+            end
+        )
     else
         push!(m.items, deps)
         :(using ..$deps)
@@ -95,15 +101,17 @@ function pass(m::MixinPass, expr)
 end
 
 macro spec_using(mod)
-    @assert @capture(mod, module name_ body__ end)
+    @assert @capture(mod, module name_
+    body__
+    end)
 
     parents = MixinPass([])
     clean_body = walk(parents, body)
 
     esc(Expr(:toplevel, :(module $name
-        $(clean_body...)
-        const AST = $body
-        const PARENTS = [$(QuoteNode.(parents.items)...)]
+    $(clean_body...)
+    const AST = $body
+    const PARENTS = [$(QuoteNode.(parents.items)...)]
     end)))
 end
 # ~/~ end
@@ -124,7 +132,7 @@ struct Struct
     use_kwdef::Bool
     is_mutable::Bool
     name::Symbol
-    abstract_type::Union{Symbol, Nothing}
+    abstract_type::Union{Symbol,Nothing}
     fields::Vector{Union{Expr,Symbol}}
 end
 
@@ -137,9 +145,11 @@ function parse_struct(expr)
     uses_kwdef = kw_struct_expr !== nothing
     struct_expr = uses_kwdef ? kw_struct_expr : struct_expr
 
-    @capture(struct_expr,
-        (struct name_ fields__ end) |
-        (mutable struct mut_name_ fields__ end)) || return
+    @capture(struct_expr, (struct name_
+        fields__::Any
+    end) | (mutable struct mut_name_
+        fields__::Any
+    end)) || return
 
     is_mutable = mut_name !== nothing
     sname = is_mutable ? mut_name : name
@@ -149,9 +159,7 @@ function parse_struct(expr)
 end
 
 function define_struct(s::Struct)
-    name = s.abstract_type !== nothing ?
-        :($(s.name) <: $(s.abstract_type)) :
-        s.name
+    name = s.abstract_type !== nothing ? :($(s.name) <: $(s.abstract_type)) : s.name
     sdef = if s.is_mutable
         :(mutable struct $name
             $(s.fields...)
@@ -188,7 +196,7 @@ function pass(p::CollectConstPass, expr)
 end
 
 struct CollectStructPass <: Pass
-    items::IdDict{Symbol, Struct}
+    items::IdDict{Symbol,Struct}
 end
 
 function pass(p::CollectStructPass, expr)
@@ -203,7 +211,9 @@ function pass(p::CollectStructPass, expr)
 end
 
 macro compose(mod)
-    @assert @capture(mod, module name_ body__ end)
+    @assert @capture(mod, module name_
+    body__
+    end)
 
     mixins = Symbol[]
     parents = MixinPass([])
@@ -226,12 +236,12 @@ macro compose(mod)
     clean_body = mixin(body)
 
     esc(Expr(:toplevel, :(module $name
-        $(usings.items...)
-        $(consts.items...)
-        $(define_struct.(values(structs.items))...)
-        $(clean_body...)
-        const AST = $body
-        const PARENTS = [$(QuoteNode.(parents.items)...)]
+    $(usings.items...)
+    $(consts.items...)
+    $(define_struct.(values(structs.items))...)
+    $(clean_body...)
+    const AST = $body
+    const PARENTS = [$(QuoteNode.(parents.items)...)]
     end)))
 end
 # ~/~ end

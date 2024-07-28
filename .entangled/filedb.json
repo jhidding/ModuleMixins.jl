@@ -39,27 +39,27 @@
     {
       "path": "docs/src/50-implementation.md",
       "deps": null,
-      "modified": "2024-07-28T21:01:37.392653",
-      "hexdigest": "32f7f16d524fce7553fa20d90385ac79caa6c08d3bbcc98110a75078a1640746",
-      "size": 10250
+      "modified": "2024-07-28T23:38:00.517843",
+      "hexdigest": "eb64815f49a7950855ea0b80936029a8db4bf0b0e6b3f4348bb1670e808eeed5",
+      "size": 10284
     },
     {
       "path": "src/ModuleMixins.jl",
       "deps": [
         "docs/src/50-implementation.md"
       ],
-      "modified": "2024-07-28T21:01:37.439653",
-      "hexdigest": "c9ebc1fcb8bf3e79c113910bfd7769fd1468978e01050c594654b73e3d22c8b2",
-      "size": 5708
+      "modified": "2024-07-28T23:38:00.487842",
+      "hexdigest": "25894f1453960c76265786aaac420d9bb9c429b8fa5fd5673f31f115c3b13396",
+      "size": 5727
     },
     {
       "path": "test/runtests.jl",
       "deps": [
         "docs/src/50-implementation.md"
       ],
-      "modified": "2024-07-28T11:56:12.341702",
-      "hexdigest": "5ec8a91d950048acb3e7b4b5cd459b55c6c0f73ec747ab65774d219fe1c504d5",
-      "size": 3669
+      "modified": "2024-07-28T23:38:00.495842",
+      "hexdigest": "e8d636c70f8a5c496c777ba931ad1837ae22804c6675eec3ff7cc1df02c484e3",
+      "size": 3738
     },
     {
       "path": "docs/src/10-introduction.md",
@@ -71,18 +71,18 @@
     {
       "path": "docs/src/20-example.md",
       "deps": null,
-      "modified": "2024-07-28T23:04:17.241090",
-      "hexdigest": "2ba5a5f6b7b2186bd7bf574f366d403c25f11278ad78e44010e0fae87ffe512b",
-      "size": 2937
+      "modified": "2024-07-28T23:38:00.520843",
+      "hexdigest": "06b5c77a58e9b7875617822c44fe56dc7da11aaca4fbc91b0010feb9e66a5204",
+      "size": 2731
     },
     {
       "path": "examples/spring.jl",
       "deps": [
         "docs/src/20-example.md"
       ],
-      "modified": "2024-07-28T22:53:58.406789",
-      "hexdigest": "b2ce9a1460b10e0ad2b4bd318865ce8b3684d881b65549f4828547157c8db5cd",
-      "size": 2716
+      "modified": "2024-07-28T23:38:00.451842",
+      "hexdigest": "e33ce125c07ad0482dc2bacbfa674fc3a77e7ad4c012890e20b9355df10ef591",
+      "size": 2511
     }
   ],
   "source": [],

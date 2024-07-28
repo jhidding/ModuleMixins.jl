@@ -1,7 +1,16 @@
 # ~/~ begin <<docs/src/50-implementation.md#test/runtests.jl>>[init]
 #| file: test/runtests.jl
 using Test
-using ModuleMixins: @spec, @spec_mixin, @spec_using, @mixin, Struct, parse_struct, define_struct, Pass, @compose
+using ModuleMixins:
+    @spec,
+    @spec_mixin,
+    @spec_using,
+    @mixin,
+    Struct,
+    parse_struct,
+    define_struct,
+    Pass,
+    @compose
 using MacroTools: prewalk, rmlines
 
 clean(expr) = prewalk(rmlines, expr)
@@ -9,37 +18,37 @@ clean(expr) = prewalk(rmlines, expr)
 # ~/~ begin <<docs/src/50-implementation.md#test-toplevel>>[init]
 #| id: test-toplevel
 @spec module MySpec
-    const msg = "hello"
+const msg = "hello"
 end
 # ~/~ end
 # ~/~ begin <<docs/src/50-implementation.md#test-toplevel>>[1]
 #| id: test-toplevel
 @spec_mixin module MyMixinSpecOne
-    @mixin A
+@mixin A
 end
 @spec_mixin module MyMixinSpecMany
-    @mixin A, B, C
+@mixin A, B, C
 end
 # ~/~ end
 # ~/~ begin <<docs/src/50-implementation.md#test-toplevel>>[2]
 #| id: test-toplevel
 @spec_using module SU_A
-    const X = :hello
-    export X
+const X = :hello
+export X
 end
 
 @spec_using module SU_B
-    @mixin SU_A
-    const Y = X
+@mixin SU_A
+const Y = X
 end
 
 @spec_using module SU_C
-    const Z = :goodbye
+const Z = :goodbye
 end
 
 @spec_using module SU_D
-    @mixin SU_A
-    @mixin SU_B, SU_C
+@mixin SU_A
+@mixin SU_B, SU_C
 end
 # ~/~ end
 # ~/~ begin <<docs/src/50-implementation.md#test-toplevel>>[3]
@@ -51,23 +60,23 @@ end
 # ~/~ begin <<docs/src/50-implementation.md#test-toplevel>>[4]
 #| id: test-toplevel
 module ComposeTest1
-    using ModuleMixins: @compose
+using ModuleMixins: @compose
 
-    @compose module A
-        struct S
-            a::Int
-        end
-    end
+@compose module A
+struct S
+    a::Int
+end
+end
 
-    @compose module B
-        struct S
-            b::Int
-        end
-    end
+@compose module B
+struct S
+    b::Int
+end
+end
 
-    @compose module AB
-        @mixin A, B
-    end
+@compose module AB
+@mixin A, B
+end
 end
 # ~/~ end
 
@@ -106,10 +115,19 @@ end
     # ~/~ begin <<docs/src/50-implementation.md#test>>[4]
     #| id: test
     cases = Dict(
-        :(struct A x end) => Struct(false, false, :A, nothing, [:x]),
-        :(mutable struct A x end) => Struct(false, true, :A, nothing, [:x]),
-        :(@kwdef struct A x end) => Struct(true, false, :A, nothing, [:x]),
-        :(@kwdef mutable struct A x end) => Struct(true, true, :A, nothing, [:x]))
+        :(struct A
+            x::Any
+        end) => Struct(false, false, :A, nothing, [:x]),
+        :(mutable struct A
+            x::Any
+        end) => Struct(false, true, :A, nothing, [:x]),
+        :(@kwdef struct A
+            x::Any
+        end) => Struct(true, false, :A, nothing, [:x]),
+        :(@kwdef mutable struct A
+            x::Any
+        end) => Struct(true, true, :A, nothing, [:x]),
+    )
 
     for (k, v) in pairs(cases)
         @testset "Struct mangling: $(join(split(string(clean(k))), " "))" begin
@@ -121,8 +139,12 @@ end
     # ~/~ begin <<docs/src/50-implementation.md#test>>[5]
     #| id: test
     @testset "Struct mangling abstracts" begin
-        @test parse_struct(:(struct A <: B x end)).abstract_type == :B
-        @test parse_struct(:(mutable struct A <: B x end)).abstract_type == :B
+        @test parse_struct(:(struct A <: B
+            x::Any
+        end)).abstract_type == :B
+        @test parse_struct(:(mutable struct A <: B
+            x::Any
+        end)).abstract_type == :B
     end
     # ~/~ end
     # ~/~ begin <<docs/src/50-implementation.md#test>>[6]
