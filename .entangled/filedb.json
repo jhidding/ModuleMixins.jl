@@ -18,9 +18,9 @@
     {
       "path": "docs/src/index.md",
       "deps": null,
-      "modified": "2024-07-23T07:35:47.479013",
-      "hexdigest": "ba4cf137273e49ea90abf467dcc1223a0d9e65dde98cfd4cfc7a258b00282bff",
-      "size": 407
+      "modified": "2024-07-28T23:17:50.443137",
+      "hexdigest": "7c8e76d3aa4c1b81e73cc6a97de1c431c435c010cb2eeb2b8368eff1f261734a",
+      "size": 945
     },
     {
       "path": "docs/src/90-contributing.md",
@@ -64,14 +64,14 @@
     {
       "path": "docs/src/10-introduction.md",
       "deps": null,
-      "modified": "2024-07-28T22:08:40.515980",
-      "hexdigest": "4fd8d0619d0d7ced7f2db52feb04f2918a35e8a2ecac4dede7260ec6afc67db5",
-      "size": 3269
+      "modified": "2024-07-28T23:17:33.674075",
+      "hexdigest": "adba57bb10d5ce89697f04018ba07de4c7e1a99b9c4fa54a67c0edfec7d9d7a5",
+      "size": 2730
     },
     {
       "path": "docs/src/20-example.md",
       "deps": null,
-      "modified": "2024-07-28T22:53:58.341788",
+      "modified": "2024-07-28T23:04:17.241090",
       "hexdigest": "2ba5a5f6b7b2186bd7bf574f366d403c25f11278ad78e44010e0fae87ffe512b",
       "size": 2937
     },

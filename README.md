@@ -12,6 +12,30 @@
 [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](CODE_OF_CONDUCT.md)
 [![All Contributors](https://img.shields.io/github/all-contributors/jhidding/ModuleMixins.jl?labelColor=5e1ec7&color=c0ffee&style=flat-square)](#contributors)
 
+`ModuleMixins` is a way of composing families of `struct` definitions on a module level. Suppose we have several modules that contain structs of the same name. We can compose these modules such that all the structs they have in common are merged. Methods that work on one component should now work on the composed type.
+
+```julia
+using ModuleMixins
+
+@compose module A
+  struct S
+    a
+  end
+end
+
+@compose module B
+  @mixin A
+
+  struct S
+    b
+  end
+end
+
+@assert fieldnames(B.S) == (:a, :b)
+```
+
+See the [full documentation](https://jhidding.github.io/ModuleMixins.jl/).
+
 ## How to Cite
 
 If you use ModuleMixins.jl in your work, please cite using the reference given in [CITATION.cff](https://github.com/jhidding/ModuleMixins.jl/blob/main/CITATION.cff).
@@ -34,4 +58,3 @@ If you want to make contributions of any kind, please first that a look into our
 <!-- prettier-ignore-end -->
 
 <!-- ALL-CONTRIBUTORS-LIST:END -->
-
