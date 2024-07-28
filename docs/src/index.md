@@ -11,6 +11,10 @@ Documentation for [ModuleMixins](https://github.com/jhidding/ModuleMixins.jl).
 !!! info
     Most problems with object type abstraction can be solved in Julia by cleverly using abstract types and multiple dispatch. Use `ModuleMixins` only after you have convinced yourself you absolutely need it.
 
+1. [Introduction](10-introduction.md)
+2. [Example](20-example.md)
+3. [Implementation](50-implementation.md)
+
 ## Contributors
 
 ```@raw html

@@ -14,6 +14,8 @@ export @compose
     end
 
 Create a spec. The `@spec` macro itself doesn't perform any operations other than creating a module and storing its own AST as `const *name*.AST`.
+
+This macro is only here for teaching purposes.
 """
 macro spec(mod)
     @assert @capture(mod, module name_
@@ -206,6 +208,15 @@ function pass(p::CollectStructPass, expr)
     return nothing
 end
 
+"""
+    @compose module Name
+        [@mixin Parents, ...]
+        ...
+    end
+
+Creates a new composable module `Name`. Structs inside this module are
+merged with those of the same name in `Parents`.
+"""
 macro compose(mod)
     @assert @capture(mod, module name_ body__ end)
 

@@ -18,9 +18,9 @@
     {
       "path": "docs/src/index.md",
       "deps": null,
-      "modified": "2024-07-28T23:17:50.443137",
-      "hexdigest": "7c8e76d3aa4c1b81e73cc6a97de1c431c435c010cb2eeb2b8368eff1f261734a",
-      "size": 945
+      "modified": "2024-07-29T01:09:31.470299",
+      "hexdigest": "c0b60b758f7f6a83d625017827e8ca26aef37bf4b13bf28ad4cd06cda06e4b84",
+      "size": 1054
     },
     {
       "path": "docs/src/90-contributing.md",
@@ -39,18 +39,18 @@
     {
       "path": "docs/src/50-implementation.md",
       "deps": null,
-      "modified": "2024-07-29T00:36:44.081416",
-      "hexdigest": "d9c2c63cc0fa987c973ff986ee7b9555b507cf5cb737fdd8576102deb0aa9dbd",
-      "size": 10203
+      "modified": "2024-07-29T01:08:49.466377",
+      "hexdigest": "29e89b8757adde892bba76b3a5788947807a707981daaebc8671d619df9b3341",
+      "size": 10455
     },
     {
       "path": "src/ModuleMixins.jl",
       "deps": [
         "docs/src/50-implementation.md"
       ],
-      "modified": "2024-07-29T00:35:09.563888",
-      "hexdigest": "5f75a349a59354c1f6fb96e30759a266cd7ac4096238de731851b01b5ab96020",
-      "size": 5729
+      "modified": "2024-07-29T01:07:31.070048",
+      "hexdigest": "75d5bd5b58d19195f67cc3eb9dc08faaaccaac7d21e2c6728be290139b08aea5",
+      "size": 5981
     },
     {
       "path": "test/runtests.jl",
@@ -87,8 +87,8 @@
   ],
   "source": [],
   "target": [
-    "examples/spring.jl",
+    "test/runtests.jl",
     "src/ModuleMixins.jl",
-    "test/runtests.jl"
+    "examples/spring.jl"
   ]
 }
