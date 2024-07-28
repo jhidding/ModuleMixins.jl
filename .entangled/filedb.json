@@ -1,84 +1,94 @@
 {
-    "version": "2.1.0",
-    "files": [
-        {
-            "path": ".entangled/tasks.json",
-            "deps": [],
-            "modified": "2024-07-23T09:34:48.862085",
-            "hexdigest": "7bb9de66306158195a10e724e13fbcd2d067c37706b4f1bc3f615737edc42274",
-            "size": 16
-        },
-        {
-            "path": "docs/src/95-reference.md",
-            "deps": null,
-            "modified": "2024-07-23T07:35:47.103011",
-            "hexdigest": "6e3ec6c55da8120da528b179c702ff70788ac49a8d367e8ba72ea948594d64db",
-            "size": 184
-        },
-        {
-            "path": "docs/src/index.md",
-            "deps": null,
-            "modified": "2024-07-28T23:17:50.443137",
-            "hexdigest": "7c8e76d3aa4c1b81e73cc6a97de1c431c435c010cb2eeb2b8368eff1f261734a",
-            "size": 945
-        },
-        {
-            "path": "docs/src/90-contributing.md",
-            "deps": null,
-            "modified": "2024-07-28T23:45:57.598882",
-            "hexdigest": "6b49241291ce2ab6f257a94b4acc9b50ad7b064da8eccf0ad2dcc6485e5f9753",
-            "size": 1164
-        },
-        {
-            "path": "docs/src/91-developer.md",
-            "deps": null,
-            "modified": "2024-07-28T23:45:57.657882",
-            "hexdigest": "61cece47e882115759b6c23a5a39b57f19a9b63dc0c6c564af84c9f9f95d911b",
-            "size": 5976
-        },
-        {
-            "path": "docs/src/50-implementation.md",
-            "deps": null,
-            "modified": "2024-07-28T23:45:57.684882",
-            "hexdigest": "220a403597bf83756da873b26ecc0f018fababdf9a8faf122c8d46f6d3d59990",
-            "size": 10285
-        },
-        {
-            "path": "src/ModuleMixins.jl",
-            "deps": ["docs/src/50-implementation.md"],
-            "modified": "2024-07-28T23:38:00.487842",
-            "hexdigest": "25894f1453960c76265786aaac420d9bb9c429b8fa5fd5673f31f115c3b13396",
-            "size": 5727
-        },
-        {
-            "path": "test/runtests.jl",
-            "deps": ["docs/src/50-implementation.md"],
-            "modified": "2024-07-28T23:38:00.495842",
-            "hexdigest": "e8d636c70f8a5c496c777ba931ad1837ae22804c6675eec3ff7cc1df02c484e3",
-            "size": 3738
-        },
-        {
-            "path": "docs/src/10-introduction.md",
-            "deps": null,
-            "modified": "2024-07-28T23:17:33.674075",
-            "hexdigest": "adba57bb10d5ce89697f04018ba07de4c7e1a99b9c4fa54a67c0edfec7d9d7a5",
-            "size": 2730
-        },
-        {
-            "path": "docs/src/20-example.md",
-            "deps": null,
-            "modified": "2024-07-28T23:38:00.520843",
-            "hexdigest": "06b5c77a58e9b7875617822c44fe56dc7da11aaca4fbc91b0010feb9e66a5204",
-            "size": 2731
-        },
-        {
-            "path": "examples/spring.jl",
-            "deps": ["docs/src/20-example.md"],
-            "modified": "2024-07-28T23:38:00.451842",
-            "hexdigest": "e33ce125c07ad0482dc2bacbfa674fc3a77e7ad4c012890e20b9355df10ef591",
-            "size": 2511
-        }
-    ],
-    "source": [],
-    "target": ["src/ModuleMixins.jl", "test/runtests.jl", "examples/spring.jl"]
+  "version": "2.1.1",
+  "files": [
+    {
+      "path": ".entangled/tasks.json",
+      "deps": [],
+      "modified": "2024-07-23T09:34:48.862085",
+      "hexdigest": "7bb9de66306158195a10e724e13fbcd2d067c37706b4f1bc3f615737edc42274",
+      "size": 16
+    },
+    {
+      "path": "docs/src/95-reference.md",
+      "deps": null,
+      "modified": "2024-07-23T07:35:47.103011",
+      "hexdigest": "6e3ec6c55da8120da528b179c702ff70788ac49a8d367e8ba72ea948594d64db",
+      "size": 184
+    },
+    {
+      "path": "docs/src/index.md",
+      "deps": null,
+      "modified": "2024-07-28T23:17:50.443137",
+      "hexdigest": "7c8e76d3aa4c1b81e73cc6a97de1c431c435c010cb2eeb2b8368eff1f261734a",
+      "size": 945
+    },
+    {
+      "path": "docs/src/90-contributing.md",
+      "deps": null,
+      "modified": "2024-07-28T23:45:57.598882",
+      "hexdigest": "6b49241291ce2ab6f257a94b4acc9b50ad7b064da8eccf0ad2dcc6485e5f9753",
+      "size": 1164
+    },
+    {
+      "path": "docs/src/91-developer.md",
+      "deps": null,
+      "modified": "2024-07-28T23:45:57.657882",
+      "hexdigest": "61cece47e882115759b6c23a5a39b57f19a9b63dc0c6c564af84c9f9f95d911b",
+      "size": 5976
+    },
+    {
+      "path": "docs/src/50-implementation.md",
+      "deps": null,
+      "modified": "2024-07-29T00:36:44.081416",
+      "hexdigest": "d9c2c63cc0fa987c973ff986ee7b9555b507cf5cb737fdd8576102deb0aa9dbd",
+      "size": 10203
+    },
+    {
+      "path": "src/ModuleMixins.jl",
+      "deps": [
+        "docs/src/50-implementation.md"
+      ],
+      "modified": "2024-07-29T00:35:09.563888",
+      "hexdigest": "5f75a349a59354c1f6fb96e30759a266cd7ac4096238de731851b01b5ab96020",
+      "size": 5729
+    },
+    {
+      "path": "test/runtests.jl",
+      "deps": [
+        "docs/src/50-implementation.md"
+      ],
+      "modified": "2024-07-29T00:29:55.385132",
+      "hexdigest": "b61702a7c994336bb2b6891d54e9f9307e2cd2f0ffec5b59585e638c0fd26796",
+      "size": 3606
+    },
+    {
+      "path": "docs/src/10-introduction.md",
+      "deps": null,
+      "modified": "2024-07-28T23:17:33.674075",
+      "hexdigest": "adba57bb10d5ce89697f04018ba07de4c7e1a99b9c4fa54a67c0edfec7d9d7a5",
+      "size": 2730
+    },
+    {
+      "path": "docs/src/20-example.md",
+      "deps": null,
+      "modified": "2024-07-29T00:36:44.080416",
+      "hexdigest": "e91f106b2c9ad62a37404a9a6aec30cdce5aa322591687369192059c330e5565",
+      "size": 2943
+    },
+    {
+      "path": "examples/spring.jl",
+      "deps": [
+        "docs/src/20-example.md"
+      ],
+      "modified": "2024-07-29T00:36:26.558318",
+      "hexdigest": "e8c55b5b44fe6b36028ec8b3bcb7c20559a1dddf32f38fa446d273fdb14cb018",
+      "size": 2723
+    }
+  ],
+  "source": [],
+  "target": [
+    "examples/spring.jl",
+    "src/ModuleMixins.jl",
+    "test/runtests.jl"
+  ]
 }

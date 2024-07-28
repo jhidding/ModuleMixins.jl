@@ -101,17 +101,15 @@ function pass(m::MixinPass, expr)
 end
 
 macro spec_using(mod)
-    @assert @capture(mod, module name_
-    body__
-    end)
+    @assert @capture(mod, module name_ body__ end)
 
     parents = MixinPass([])
     clean_body = walk(parents, body)
 
     esc(Expr(:toplevel, :(module $name
-    $(clean_body...)
-    const AST = $body
-    const PARENTS = [$(QuoteNode.(parents.items)...)]
+        $(clean_body...)
+        const AST = $body
+        const PARENTS = [$(QuoteNode.(parents.items)...)]
     end)))
 end
 # ~/~ end
@@ -145,11 +143,9 @@ function parse_struct(expr)
     uses_kwdef = kw_struct_expr !== nothing
     struct_expr = uses_kwdef ? kw_struct_expr : struct_expr
 
-    @capture(struct_expr, (struct name_
-        fields__::Any
-    end) | (mutable struct mut_name_
-        fields__::Any
-    end)) || return
+    @capture(struct_expr,
+        (struct name_ fields__ end) |
+        (mutable struct mut_name_ fields__ end)) || return
 
     is_mutable = mut_name !== nothing
     sname = is_mutable ? mut_name : name
@@ -211,9 +207,7 @@ function pass(p::CollectStructPass, expr)
 end
 
 macro compose(mod)
-    @assert @capture(mod, module name_
-    body__
-    end)
+    @assert @capture(mod, module name_ body__ end)
 
     mixins = Symbol[]
     parents = MixinPass([])
@@ -236,12 +230,12 @@ macro compose(mod)
     clean_body = mixin(body)
 
     esc(Expr(:toplevel, :(module $name
-    $(usings.items...)
-    $(consts.items...)
-    $(define_struct.(values(structs.items))...)
-    $(clean_body...)
-    const AST = $body
-    const PARENTS = [$(QuoteNode.(parents.items)...)]
+        $(usings.items...)
+        $(consts.items...)
+        $(define_struct.(values(structs.items))...)
+        $(clean_body...)
+        const AST = $body
+        const PARENTS = [$(QuoteNode.(parents.items)...)]
     end)))
 end
 # ~/~ end
