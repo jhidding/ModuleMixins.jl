@@ -6,3 +6,4 @@ docs/build/
 *.rej
 node_modules
 .entangled/filedb.lock
+.vscode

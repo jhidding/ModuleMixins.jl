@@ -9,7 +9,7 @@ module ModuleMixins
 
 using MacroTools: @capture, postwalk, prewalk
 
-export @spec
+export @compose
 
 <<spec>>
 <<mixin>>
@@ -24,7 +24,7 @@ To facilitate testing, we need to be able to compare syntax. We use the `clean` 
 ```julia
 #| file: test/runtests.jl
 using Test
-using ModuleMixins: @spec, @spec_mixin, @spec_using, @mixin, Struct, parse_struct, define_struct, Pass
+using ModuleMixins: @spec, @spec_mixin, @spec_using, @mixin, Struct, parse_struct, define_struct, Pass, @compose
 using MacroTools: prewalk, rmlines
 
 clean(expr) = prewalk(rmlines, expr)
@@ -207,35 +207,36 @@ Base.:+(a::Pass...) = splat(+)(convert.(CompositePass, a))
 function pass(cp::CompositePass, expr)
     for p in cp.parts
         result = pass(p, expr)
-        if result !== nothing
+        if result !== :nomatch
             return result
         end
     end
+    return :nomatch
 end
 
 function walk(x::Pass, expr_list)
     function patch(expr)
         result = pass(x, expr)
-        result == nothing ? expr : result
+        result === :nomatch ? expr : result
     end
-    postwalk.(patch, expr_list)
+    prewalk.(patch, expr_list)
 end
 ```
 
 ```julia
 #| id: spec
 @kwdef struct MixinPass <: Pass
-    parents::Vector{Symbol}
+    items::Vector{Symbol}
 end
 
 function pass(m::MixinPass, expr)
-    @capture(expr, @mixin deps_) || return
+    @capture(expr, @mixin deps_) || return :nomatch
 
     if @capture(deps, (multiple_deps__,))
-        append!(m.parents, multiple_deps)
+        append!(m.items, multiple_deps)
         :(begin $([:(using ..$d) for d in multiple_deps]...) end)
     else
-        push!(m.parents, deps)
+        push!(m.items, deps)
         :(using ..$deps)
     end
 end
@@ -243,13 +244,13 @@ end
 macro spec_using(mod)
     @assert @capture(mod, module name_ body__ end)
 
-    p = MixinPass([])
-    clean_body = walk(p, body)
+    parents = MixinPass([])
+    clean_body = walk(parents, body)
 
     esc(Expr(:toplevel, :(module $name
         $(clean_body...)
         const AST = $body
-        const PARENTS = [$(QuoteNode.(p.parents)...)]
+        const PARENTS = [$(QuoteNode.(parents.items)...)]
     end)))
 end
 ```
@@ -295,6 +296,10 @@ struct Struct
     fields::Vector{Union{Expr,Symbol}}
 end
 
+function extend_struct!(s1::Struct, s2::Struct)
+    append!(s1.fields, s2.fields)
+end
+
 function parse_struct(expr)
     @capture(expr, (@kwdef kw_struct_expr_) | struct_expr_)
     uses_kwdef = kw_struct_expr !== nothing
@@ -333,215 +338,103 @@ end
 Unfortunately now comes a big leap. We'll merge all struct definitions inside the body of a module definition with that of its parents. We must also make sure that a `struct` definition still compiles, so we have to take along `using` and `const` statements.
 
 ```julia
+#| id: test-toplevel
+module ComposeTest1
+    using ModuleMixins: @compose
+
+    @compose module A
+        struct S
+            a::Int
+        end
+    end
+
+    @compose module B
+        struct S
+            b::Int
+        end
+    end
+
+    @compose module AB
+        @mixin A, B
+    end
+end
+```
+
+```julia
+#| id: test
+@testset "compose struct members" begin
+    @test fieldnames(ComposeTest1.AB.S) == (:a, :b)
+end
+```
+
+```julia
 #| id: compose
 
 struct CollectUsingPass <: Pass
-    imports::Vector{Expr}
+    items::Vector{Expr}
 end
 
 function pass(p::CollectUsingPass, expr)
-    @capture(expr, using x__ | using mod__: x__) || return
-    push!(p.imports, expr)
-    return expr
+    @capture(expr, using x__ | using mod__: x__) || return :nomatch
+    push!(p.items, expr)
+    return nothing
 end
 
 struct CollectConstPass <: Pass
-    consts::Vector{Expr}
+    items::Vector{Expr}
 end
 
 function pass(p::CollectConstPass, expr)
-    @capture(expr, const x_ = y_) || return
-    push!(p.consts, expr)
-    return expr
+    @capture(expr, const x_ = y_) || return :nomatch
+    push!(p.items, expr)
+    return nothing
 end
 
 struct CollectStructPass <: Pass
-    structs::Vector{Struct}
+    items::IdDict{Symbol, Struct}
 end
 
 function pass(p::CollectStructPass, expr)
     s = parse_struct(expr)
-    s === nothing && return
-    push!(p.structs, s)
-    return expr
+    s === nothing && return :nomatch
+    if s.name in keys(p.items)
+        extend_struct!(p.items[s.name], s)
+    else
+        p.items[s.name] = s
+    end
+    return nothing
 end
 
 macro compose(mod)
     @assert @capture(mod, module name_ body__ end)
 
-    p = MixinPass([])
-    clean_body = walk(p, body)
+    mixins = Symbol[]
+    parents = MixinPass([])
+    usings = CollectUsingPass([])
+    consts = CollectConstPass([])
+    structs = CollectStructPass(IdDict())
+
+    function mixin(expr)
+        parents = MixinPass([])
+        pass1 = walk(parents, expr)
+        for p in parents.items
+            p in mixins && continue
+            push!(mixins, p)
+            parent_expr = Core.eval(__module__, :($(p).AST))
+            mixin(parent_expr)
+        end
+        walk(usings + consts + structs, pass1)
+    end
+
+    clean_body = mixin(body)
 
     esc(Expr(:toplevel, :(module $name
+        $(usings.items...)
+        $(consts.items...)
+        $(define_struct.(values(structs.items))...)
         $(clean_body...)
         const AST = $body
-        const PARENTS = [$(QuoteNode.(p.parents)...)]
+        const PARENTS = [$(QuoteNode.(parents.items)...)]
     end)))
 end
-```
-
-## `@compose`
-
-The idea of `@compose` is that it splices `struct` definitions, such that resulting structs contain all members from required specs.
-
-We define some variables to collect structs, consts and `using` declarations. At the end we use these collections to build a new module.
-
-``` {.julia #dsl-spec-defs}
-@spec A begin
-  struct S
-    a::Int
-  end
-end
-
-@spec B begin
-  struct S
-    b::Int
-  end
-end
-
-@compose AB [A, B] begin
-end
-```
-
-``` {.julia #dsl-spec}
-@test fieldnames(AB.S) == (:a, :b)
-```
-
-A spec can depend on another using the `@require` syntax.
-
-``` {.julia #dsl-spec-defs}
-@spec C begin
-  @requires A
-  struct S
-    c::Int
-  end
-
-  @kwdef struct T
-    f::Int
-  end
-end
-
-@compose AC [C] begin
-end
-```
-
-``` {.julia #dsl-spec}
-@test fieldnames(AC.S) == (:a, :c)
-@test fieldnames(AC.T) == (:f,)
-@test AC.T(f = 4).f == 4
-```
-
-```@raw html
-<details><summary>`@compose` implementation</summary>
-```
-
-``` {.julia #dsl}
-macro compose(modname, cs, body)
-    components = Set{Symbol}()
-
-    structs = IdDict()
-    using_statements = []
-    const_statements = []
-    specs_used = Set()
-
-    <<dsl-compose>>
-
-    @assert cs.head == :vect
-    cs.args .|> scan
-
-    Expr(:toplevel, esc(:(module $modname
-        $(using_statements...)
-        $(const_statements...)
-        $(Iterators.map(splat(define_struct), pairs(structs))...)
-        $(body.args...)
-    end)))
-end
-```
-
-``` {.julia #dsl-compose}
-function extend_struct!(name::Symbol, fields::Vector)
-    append!(structs[name].fields, fields)
-end
-
-function create_struct!(name::Symbol, is_mutable::Bool, is_kwarg::Bool, abst::Union{Symbol, Nothing}, fields::Vector)
-    structs[name] = Struct(is_mutable, is_kwarg, abst, fields)
-end
-
-function pass(e)
-    if @capture(e, @requires parents__)
-        parents .|> scan
-        return
-    end
-
-    if @capture(e, (struct name_ fields__ end) |
-                   (@kwdef struct kw_name_ fields__ end) |
-                   (mutable struct mut_name_ fields__ end))
-        is_mutable = mut_name !== nothing
-        is_kwarg = kw_name !== nothing
-        sname = is_mutable ? mut_name : (is_kwarg ? kw_name : name)
-
-        @capture(sname, (name_ <: abst_) | name_)
-
-        if name in keys(structs)
-            extend_struct!(name, fields)
-        else
-            create_struct!(name, is_mutable, is_kwarg, abst, fields)
-        end
-        return
-    end
-
-    if @capture(e, const n_ = x_)
-        push!(const_statements, e)
-        return
-    end
-
-    if @capture(e, using x__ | using mod__: x__)
-        push!(using_statements, e)
-        return
-    end
-
-    return e
-end
-
-function scan(c::Symbol)
-    if c in specs_used
-        return
-    end
-    push!(specs_used, c)
-
-    e = Core.eval(__module__, :($(c).AST))
-    prewalk(pass, e)
-end
-```
-
-``` {.julia #dsl-struct-type}
-struct Struct
-    mut::Bool
-    kwarg::Bool
-    parent::Union{Symbol, Nothing}
-    fields::Vector{Union{Expr,Symbol}}
-end
-
-function define_struct(name::Symbol, s::Struct)
-    if s.parent !== nothing
-        name = :($name <: $(s.parent))
-    end
-    if s.mut
-        :(mutable struct $name
-            $(s.fields...)
-        end)
-    elseif s.kwarg
-        :(@kwdef struct $name
-            $(s.fields...)
-          end)
-    else
-        :(struct $name
-            $(s.fields...)
-        end)
-    end
-end
-```
-
-```@raw html
-</details>
 ```

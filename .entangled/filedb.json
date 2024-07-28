@@ -39,32 +39,56 @@
     {
       "path": "docs/src/50-implementation.md",
       "deps": null,
-      "modified": "2024-07-24T13:19:18.720985",
-      "hexdigest": "03ddc77d6706c4c6266e48f90a96251c68e1da2d0009e91937ca22516604138e",
-      "size": 12277
+      "modified": "2024-07-28T21:01:37.392653",
+      "hexdigest": "32f7f16d524fce7553fa20d90385ac79caa6c08d3bbcc98110a75078a1640746",
+      "size": 10250
     },
     {
       "path": "src/ModuleMixins.jl",
       "deps": [
         "docs/src/50-implementation.md"
       ],
-      "modified": "2024-07-24T13:19:18.735985",
-      "hexdigest": "d112963393b574c0e05d775c5a13debded0311ecc3654c1947ec22add474f7ba",
-      "size": 4850
+      "modified": "2024-07-28T21:01:37.439653",
+      "hexdigest": "c9ebc1fcb8bf3e79c113910bfd7769fd1468978e01050c594654b73e3d22c8b2",
+      "size": 5708
     },
     {
       "path": "test/runtests.jl",
       "deps": [
         "docs/src/50-implementation.md"
       ],
-      "modified": "2024-07-24T11:08:07.739633",
-      "hexdigest": "891eefd984c2964d1ad1bd4b18f0febc81c65ab55376ee93a2195c0e056b083c",
-      "size": 3102
+      "modified": "2024-07-28T11:56:12.341702",
+      "hexdigest": "5ec8a91d950048acb3e7b4b5cd459b55c6c0f73ec747ab65774d219fe1c504d5",
+      "size": 3669
+    },
+    {
+      "path": "docs/src/10-introduction.md",
+      "deps": null,
+      "modified": "2024-07-28T22:08:40.515980",
+      "hexdigest": "4fd8d0619d0d7ced7f2db52feb04f2918a35e8a2ecac4dede7260ec6afc67db5",
+      "size": 3269
+    },
+    {
+      "path": "docs/src/20-example.md",
+      "deps": null,
+      "modified": "2024-07-28T22:53:58.341788",
+      "hexdigest": "2ba5a5f6b7b2186bd7bf574f366d403c25f11278ad78e44010e0fae87ffe512b",
+      "size": 2937
+    },
+    {
+      "path": "examples/spring.jl",
+      "deps": [
+        "docs/src/20-example.md"
+      ],
+      "modified": "2024-07-28T22:53:58.406789",
+      "hexdigest": "b2ce9a1460b10e0ad2b4bd318865ce8b3684d881b65549f4828547157c8db5cd",
+      "size": 2716
     }
   ],
   "source": [],
   "target": [
     "src/ModuleMixins.jl",
-    "test/runtests.jl"
+    "test/runtests.jl",
+    "examples/spring.jl"
   ]
 }

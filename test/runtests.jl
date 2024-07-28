@@ -1,7 +1,7 @@
 # ~/~ begin <<docs/src/50-implementation.md#test/runtests.jl>>[init]
 #| file: test/runtests.jl
 using Test
-using ModuleMixins: @spec, @spec_mixin, @spec_using, @mixin, Struct, parse_struct, define_struct, Pass
+using ModuleMixins: @spec, @spec_mixin, @spec_using, @mixin, Struct, parse_struct, define_struct, Pass, @compose
 using MacroTools: prewalk, rmlines
 
 clean(expr) = prewalk(rmlines, expr)
@@ -46,6 +46,28 @@ end
 #| id: test-toplevel
 struct EmptyPass <: Pass
     tag::Symbol
+end
+# ~/~ end
+# ~/~ begin <<docs/src/50-implementation.md#test-toplevel>>[4]
+#| id: test-toplevel
+module ComposeTest1
+    using ModuleMixins: @compose
+
+    @compose module A
+        struct S
+            a::Int
+        end
+    end
+
+    @compose module B
+        struct S
+            b::Int
+        end
+    end
+
+    @compose module AB
+        @mixin A, B
+    end
 end
 # ~/~ end
 
@@ -101,6 +123,12 @@ end
     @testset "Struct mangling abstracts" begin
         @test parse_struct(:(struct A <: B x end)).abstract_type == :B
         @test parse_struct(:(mutable struct A <: B x end)).abstract_type == :B
+    end
+    # ~/~ end
+    # ~/~ begin <<docs/src/50-implementation.md#test>>[6]
+    #| id: test
+    @testset "compose struct members" begin
+        @test fieldnames(ComposeTest1.AB.S) == (:a, :b)
     end
     # ~/~ end
 end
