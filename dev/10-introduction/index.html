@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Introduction · ModuleMixins.jl</title><meta name="title" content="Introduction · ModuleMixins.jl"/><meta property="og:title" content="Introduction · ModuleMixins.jl"/><meta property="twitter:title" content="Introduction · ModuleMixins.jl"/><meta name="description" content="Documentation for ModuleMixins.jl."/><meta property="og:description" content="Documentation for ModuleMixins.jl."/><meta property="twitter:description" content="Documentation for ModuleMixins.jl."/><meta property="og:url" content="https://jhidding.github.io/ModuleMixins.jl/10-introduction/"/><meta property="twitter:url" content="https://jhidding.github.io/ModuleMixins.jl/10-introduction/"/><link rel="canonical" href="https://jhidding.github.io/ModuleMixins.jl/10-introduction/"/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../">ModuleMixins.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">ModuleMixins</a></li><li class="is-active"><a class="tocitem" href>Introduction</a><ul class="internal"><li><a class="tocitem" href="#Diamond-pattern"><span>Diamond pattern</span></a></li><li><a class="tocitem" href="#Motivation-from-OOP"><span>Motivation from OOP</span></a></li></ul></li><li><a class="tocitem" href="../20-example/">Example</a></li><li><a class="tocitem" href="../50-implementation/">Implementation</a></li><li><a class="tocitem" href="../90-contributing/">Contributing guidelines</a></li><li><a class="tocitem" href="../91-developer/">Developer documentation</a></li><li><a class="tocitem" href="../95-reference/">Reference</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Introduction</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Introduction</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/jhidding/ModuleMixins.jl/blob/main/docs/src/10-introduction.md#" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Introduction"><a class="docs-heading-anchor" href="#Introduction">Introduction</a><a id="Introduction-1"></a><a class="docs-heading-anchor-permalink" href="#Introduction" title="Permalink"></a></h1><pre><code class="language-julia hljs">using ModuleMixins
+
+@compose module A
+  struct S
+    a
+  end
+end
+
+@compose module B
+  @mixin A
+
+  struct S
+    b
+  end
+end
+
+fieldnames(B.S)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(:a, :b)</code></pre><p>A <code>struct</code> within a composed module can be <code>mutable</code> and/or <code>@kwdef</code>, abstract base types are also forwarded. All <code>using</code> and <code>const</code> statements are forwarded to the derived module, so that field types still compile.</p><pre><code class="language-julia hljs">using ModuleMixins
+
+@compose module A
+  const V = Vector{Int}
+  struct S
+    a::V
+  end
+end
+
+@compose module B
+  @mixin A
+end
+
+typeof(B.S([42]).a)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Vector{Int64}<span class="sgr90"> (alias for Array{Int64, 1})</span></code></pre><h2 id="Diamond-pattern"><a class="docs-heading-anchor" href="#Diamond-pattern">Diamond pattern</a><a id="Diamond-pattern-1"></a><a class="docs-heading-anchor-permalink" href="#Diamond-pattern" title="Permalink"></a></h2><p>The following pattern of multiple inheritence should work:</p><pre><code class="language-julia hljs">using ModuleMixins: @compose
+
+@compose module A
+    struct S a::Int end
+end
+
+@compose module B
+    @mixin A
+    struct S b::Int end
+end
+
+@compose module C
+    @mixin A
+    struct S c::Int end
+end
+
+@compose module D
+    @mixin B, C
+    struct S d::Int end
+end
+
+fieldnames(D.S)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(:a, :b, :c, :d)</code></pre><p>The type <code>D.S</code> now has fields <code>a</code>, <code>b</code>, <code>c</code> and <code>d</code>.</p><h2 id="Motivation-from-OOP"><a class="docs-heading-anchor" href="#Motivation-from-OOP">Motivation from OOP</a><a id="Motivation-from-OOP-1"></a><a class="docs-heading-anchor-permalink" href="#Motivation-from-OOP" title="Permalink"></a></h2><p>Julia is not an object oriented programming (OOP) language. In general, when one speaks of object orientation a mix of a few related concepts is meant:</p><ul><li>Compartimenting program state.</li><li>Message passing between entities.</li><li>Abstraction over interfaces.</li><li>Inheritence or composition.</li></ul><p>Where in other languages these concepts are mostly covered by classes, in Julia most of the patterns that are associated with OOP are implemented using multiple dispatch.</p><p>The single concept that is not covered by the Julia language or the standard library is inheritance or object composition. Suppose we have two types along with some methods (in the real world these would be much more extensive structs):</p><pre><code class="language-julia hljs">struct A
+    x::Int
+end
+
+amsg(a::A) = &quot;Hello $(a.x)&quot;
+
+struct B
+    y::Int
+end
+
+bmsg(b::B) = &quot;Goodbye $(b.y)&quot;</code></pre><p>Now, for some reason you want to compose those types so that <code>amsg</code> and <code>bmsg</code> can be called on our new type.</p><pre><code class="language-julia hljs">struct C
+    x::Int
+    y::Int
+end
+
+amsg(c::C) = amsg(A(c.x))
+bmsg(c::C) = bmsg(B(c.y))</code></pre><p>There are some downsides to this: we needed to copy data from <code>C</code> into the more primitive types <code>A</code> and <code>B</code>. We could get around this by removing the types from the original method implementations. Too strict static typing can be a bad thing in Julia!</p><p>An alternative approach would be to define <code>C</code> differently:</p><pre><code class="language-julia hljs">struct C
+    a::A
+    b::B
+end</code></pre><p>We would need to abstract over member access using getter and setter methods. When objects grow a bit larger, this type of compositon comes with a lot of boilerplate code. In Julia this is synonymous to: we need macros.</p><p>There we have it: if we want any form of composition or inheritance in our types, we need macros to support us.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../">« ModuleMixins</a><a class="docs-footer-nextpage" href="../20-example/">Example »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.5.0 on <span class="colophon-date" title="Sunday 28 July 2024 22:56">Sunday 28 July 2024</span>. Using Julia version 1.10.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

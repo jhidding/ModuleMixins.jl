@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Example · ModuleMixins.jl</title><meta name="title" content="Example · ModuleMixins.jl"/><meta property="og:title" content="Example · ModuleMixins.jl"/><meta property="twitter:title" content="Example · ModuleMixins.jl"/><meta name="description" content="Documentation for ModuleMixins.jl."/><meta property="og:description" content="Documentation for ModuleMixins.jl."/><meta property="twitter:description" content="Documentation for ModuleMixins.jl."/><meta property="og:url" content="https://jhidding.github.io/ModuleMixins.jl/20-example/"/><meta property="twitter:url" content="https://jhidding.github.io/ModuleMixins.jl/20-example/"/><link rel="canonical" href="https://jhidding.github.io/ModuleMixins.jl/20-example/"/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../">ModuleMixins.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">ModuleMixins</a></li><li><a class="tocitem" href="../10-introduction/">Introduction</a></li><li class="is-active"><a class="tocitem" href>Example</a></li><li><a class="tocitem" href="../50-implementation/">Implementation</a></li><li><a class="tocitem" href="../90-contributing/">Contributing guidelines</a></li><li><a class="tocitem" href="../91-developer/">Developer documentation</a></li><li><a class="tocitem" href="../95-reference/">Reference</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Example</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Example</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/jhidding/ModuleMixins.jl/blob/main/docs/src/20-example.md#" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Example"><a class="docs-heading-anchor" href="#Example">Example</a><a id="Example-1"></a><a class="docs-heading-anchor-permalink" href="#Example" title="Permalink"></a></h1><p>It cannot be helped that this example will seem a bit contrived.</p><p>We&#39;re modelling the movement of a spring. It can be useful to put some common definitions in a separate module.</p><pre><code class="language-julia hljs">#| file: examples/spring.jl
+
+using ModuleMixins
+using CairoMakie
+using Unitful
+
+module Common
+    abstract type AbstractInput end
+    abstract type AbstractState end
+
+    function initial_state(input::AbstractInput)
+        error(&quot;Can&#39;t construct from AbstractInput&quot;)
+    end
+
+    export AbstractInput, AbstractState, initial_state
+end
+
+&lt;&lt;example-time&gt;&gt;
+&lt;&lt;example-spring&gt;&gt;
+&lt;&lt;example-run&gt;&gt;</code></pre><p>The model has input parameters and a mutable state. We&#39;ll have a time component:</p><pre><code class="language-julia hljs">#| id: example-time
+
+@compose module Time
+    using Unitful
+    using ..Common
+
+    @kwdef struct Input &lt;: AbstractInput
+        t_step::typeof(1.0u&quot;s&quot;)
+        t_end::typeof(1.0u&quot;s&quot;)
+    end
+
+    mutable struct State &lt;: AbstractState
+        time::typeof(1.0u&quot;s&quot;)
+    end
+
+    function step!(input::AbstractInput, state::AbstractState)
+        state.time += input.t_step
+    end
+
+    function run(model, input::AbstractInput)
+        s = model.initial_state(input)
+        Channel() do ch
+            while s.time &lt; input.t_end
+                model.step!(input, s)
+                put!(ch, deepcopy(s))
+            end
+        end
+    end
+end</code></pre><p>Note that the <code>run</code> function is generic. And a component for the spring.</p><pre><code class="language-julia hljs">#| id: example-spring
+
+@compose module Spring
+    @mixin Time
+    using ..Common
+    using Unitful
+
+    @kwdef struct Input &lt;: AbstractInput
+        spring_constant::typeof(1.0u&quot;s^-2&quot;)
+        initial_position::typeof(1.0u&quot;m&quot;)
+    end
+
+    mutable struct State &lt;: AbstractState
+        position::typeof(1.0u&quot;m&quot;)
+        velocity::typeof(1.0u&quot;m/s&quot;)
+    end
+
+    function step!(input::AbstractInput, state::AbstractState)
+        delta_v = -input.spring_constant * state.position
+        state.position += state.velocity * input.t_step
+        state.velocity += delta_v * input.t_step
+    end
+end</code></pre><p>Now we may compose these using <code>@mixin</code>:</p><pre><code class="language-julia hljs">#| id: example-run
+
+@compose module Model
+    @mixin Time, Spring
+    using ..Common
+    using Unitful
+
+    function step!(input::Input, state::State)
+        Spring.step!(input, state)
+        Time.step!(input, state)
+    end
+
+    function initial_state(input::Input)
+        return State(0.0u&quot;s&quot;, input.initial_position, 0.0u&quot;m/s&quot;)
+    end
+end</code></pre><p>And see the result.</p><pre><code class="language-julia hljs">#| id: example-run
+
+function plot_result()
+    input = Model.Input(
+        t_step = 0.001u&quot;s&quot;,
+        t_end = 1.0u&quot;s&quot;,
+        spring_constant = 250.0u&quot;s^-2&quot;,
+        initial_position = 1.0u&quot;m&quot;,
+    )
+
+    output = Time.run(Model, input) |&gt; collect
+    times = [f.time for f in output]
+    pos = [f.position for f in output]
+
+    fig = Figure()
+    ax = Axis(fig[1, 1])
+    lines!(ax, times, pos)
+    save(&quot;docs/src/fig/plot.svg&quot;, fig)
+end
+
+plot_result()</code></pre><p><img src="../fig/plot.svg" alt="Example output"/></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../10-introduction/">« Introduction</a><a class="docs-footer-nextpage" href="../50-implementation/">Implementation »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.5.0 on <span class="colophon-date" title="Sunday 28 July 2024 22:56">Sunday 28 July 2024</span>. Using Julia version 1.10.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
