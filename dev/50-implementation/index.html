@@ -45,6 +45,8 @@ end</code></pre><p>The <code>@spec</code> macro is used to specify the structs o
     end
 
 Create a spec. The `@spec` macro itself doesn&#39;t perform any operations other than creating a module and storing its own AST as `const *name*.AST`.
+
+This macro is only here for teaching purposes.
 &quot;&quot;&quot;
 macro spec(mod)
     @assert @capture(mod, module name_
@@ -300,6 +302,15 @@ function pass(p::CollectStructPass, expr)
     return nothing
 end
 
+&quot;&quot;&quot;
+    @compose module Name
+        [@mixin Parents, ...]
+        ...
+    end
+
+Creates a new composable module `Name`. Structs inside this module are
+merged with those of the same name in `Parents`.
+&quot;&quot;&quot;
 macro compose(mod)
     @assert @capture(mod, module name_ body__ end)
 
@@ -331,4 +342,4 @@ macro compose(mod)
         const AST = $body
         const PARENTS = [$(QuoteNode.(parents.items)...)]
     end)))
-end</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../20-example/">« Example</a><a class="docs-footer-nextpage" href="../90-contributing/">Contributing guidelines »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.5.0 on <span class="colophon-date" title="Sunday 28 July 2024 22:56">Sunday 28 July 2024</span>. Using Julia version 1.10.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+end</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../20-example/">« Example</a><a class="docs-footer-nextpage" href="../90-contributing/">Contributing guidelines »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.5.0 on <span class="colophon-date" title="Sunday 28 July 2024 23:24">Sunday 28 July 2024</span>. Using Julia version 1.10.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
