@@ -9,6 +9,7 @@ readme = "README.md"
 python = "^3.11"
 copier = "^9.3.1"
 entangled-cli = {path = "/home/johannes/Code/entangled/entangled.py", develop = true}
+pre-commit = "^3.8.0"
 
 
 [build-system]

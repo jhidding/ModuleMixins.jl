@@ -1,4 +1,5 @@
 # Implementation
+
 The way `ModuleMixins` is implemented, is that we start out with something relatively simple, and build out from that. This means there will be some redudant code. Macros are hard to engineer, this takes you through the entire process.
 
 ## Prelude
