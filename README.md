@@ -4,7 +4,6 @@
 [![In development documentation](https://img.shields.io/badge/docs-dev-blue.svg)](https://jhidding.github.io/ModuleMixins.jl/dev)
 [![Build Status](https://github.com/jhidding/ModuleMixins.jl/workflows/Test/badge.svg)](https://github.com/jhidding/ModuleMixins.jl/actions)
 [![Test workflow status](https://github.com/jhidding/ModuleMixins.jl/actions/workflows/Test.yml/badge.svg?branch=main)](https://github.com/jhidding/ModuleMixins.jl/actions/workflows/Test.yml?query=branch%3Amain)
-[![Lint workflow Status](https://github.com/jhidding/ModuleMixins.jl/actions/workflows/Lint.yml/badge.svg?branch=main)](https://github.com/jhidding/ModuleMixins.jl/actions/workflows/Lint.yml?query=branch%3Amain)
 [![Docs workflow Status](https://github.com/jhidding/ModuleMixins.jl/actions/workflows/Docs.yml/badge.svg?branch=main)](https://github.com/jhidding/ModuleMixins.jl/actions/workflows/Docs.yml?query=branch%3Amain)
 
 [![Coverage](https://codecov.io/gh/jhidding/ModuleMixins.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/jhidding/ModuleMixins.jl)
