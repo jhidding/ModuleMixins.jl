@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Objects, Inheritance and Modules in Julia · ModuleMixins.jl</title><meta name="title" content="Objects, Inheritance and Modules in Julia · ModuleMixins.jl"/><meta property="og:title" content="Objects, Inheritance and Modules in Julia · ModuleMixins.jl"/><meta property="twitter:title" content="Objects, Inheritance and Modules in Julia · ModuleMixins.jl"/><meta name="description" content="Documentation for ModuleMixins.jl."/><meta property="og:description" content="Documentation for ModuleMixins.jl."/><meta property="twitter:description" content="Documentation for ModuleMixins.jl."/><meta property="og:url" content="https://jhidding.github.io/ModuleMixins.jl/30-blog/"/><meta property="twitter:url" content="https://jhidding.github.io/ModuleMixins.jl/30-blog/"/><link rel="canonical" href="https://jhidding.github.io/ModuleMixins.jl/30-blog/"/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../">ModuleMixins.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">ModuleMixins</a></li><li><a class="tocitem" href="../10-introduction/">Introduction</a></li><li><a class="tocitem" href="../20-example/">Example</a></li><li class="is-active"><a class="tocitem" href>Objects, Inheritance and Modules in Julia</a><ul class="internal"><li><a class="tocitem" href="#The-JIT-compiler"><span>The JIT compiler</span></a></li><li><a class="tocitem" href="#Object-Oriented-Programming"><span>Object Oriented Programming</span></a></li><li><a class="tocitem" href="#Functions,-Methods,-Interfaces"><span>Functions, Methods, Interfaces</span></a></li><li><a class="tocitem" href="#Composition-over-Inheritance"><span>Composition over Inheritance</span></a></li></ul></li><li><a class="tocitem" href="../50-implementation/">Implementation</a></li><li><a class="tocitem" href="../90-contributing/">Contributing guidelines</a></li><li><a class="tocitem" href="../91-developer/">Developer documentation</a></li><li><a class="tocitem" href="../95-reference/">Reference</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Objects, Inheritance and Modules in Julia</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Objects, Inheritance and Modules in Julia</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/jhidding/ModuleMixins.jl/blob/main/docs/src/30-blog.md#" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Objects,-Inheritance-and-Modules-in-Julia"><a class="docs-heading-anchor" href="#Objects,-Inheritance-and-Modules-in-Julia">Objects, Inheritance and Modules in Julia</a><a id="Objects,-Inheritance-and-Modules-in-Julia-1"></a><a class="docs-heading-anchor-permalink" href="#Objects,-Inheritance-and-Modules-in-Julia" title="Permalink"></a></h1><p>Julia is an amazing programming language that finds its use mainly in the hands of scientific modelers. Julia combines a welcoming syntax that doesn&#39;t scare new users with stellar performance rivaling C++ and Fortran. While Julia is easy to get into – the basics are a hybrid between Python and Matlab – there are some quirks to the language that change the way you need to think about overall program architecture: there are no objects. However, don&#39;t be discouraged: there is a reason for everything. I&#39;ll explain not only how we can work around the lack of objects, but also to embrace it! Last but not least, I present a new module to plug the final hole in the sea of abstractions that is left by the absence of objects: mixins, but more on that later.</p><h2 id="The-JIT-compiler"><a class="docs-heading-anchor" href="#The-JIT-compiler">The JIT compiler</a><a id="The-JIT-compiler-1"></a><a class="docs-heading-anchor-permalink" href="#The-JIT-compiler" title="Permalink"></a></h2><p>Julia aims to be both user-friendly and fast to execute. To achieve this, we get the wonderful mix of a dynamically typed language that is compiled to machine instructions, just-in-time (JIT). This works as follows: when a function is called we know the types of the arguments (the type signature) that are given as input, and the compiler generates optimized code for that specific type signature. When the function is called again with the same signature, the compiled version is reused from cache.</p><h3 id="Multiple-dispatch"><a class="docs-heading-anchor" href="#Multiple-dispatch">Multiple dispatch</a><a id="Multiple-dispatch-1"></a><a class="docs-heading-anchor-permalink" href="#Multiple-dispatch" title="Permalink"></a></h3><p>Since the type signature is such an integral part of the execution model, there is a nice trick we can play: multiple dispatch. We can redefine the same method for many different type signatures (similar to function overloading in C++). For instance, the addition operator has (as of Julia 1.10) 189 method implementations.</p><h3 id="Multiple-dispatch-supersedes-objects"><a class="docs-heading-anchor" href="#Multiple-dispatch-supersedes-objects">Multiple dispatch supersedes objects</a><a id="Multiple-dispatch-supersedes-objects-1"></a><a class="docs-heading-anchor-permalink" href="#Multiple-dispatch-supersedes-objects" title="Permalink"></a></h3><p>Multiple dispatch leads us to our first comparison with object oriented languages: abstract method calls are a dispatch on just the first parameter (self or this). In this respect the level of abstraction that multiple dispatch offers is more powerful than the idea of tying method implementations to compound types (i.e. objects). However, object oriented programming is more than just objects. Let&#39;s see how Julia compares.</p><h2 id="Object-Oriented-Programming"><a class="docs-heading-anchor" href="#Object-Oriented-Programming">Object Oriented Programming</a><a id="Object-Oriented-Programming-1"></a><a class="docs-heading-anchor-permalink" href="#Object-Oriented-Programming" title="Permalink"></a></h2><p>Object Oriented Programming as we know it today is a group of abstractions guided around the principle of having some way to dynamically look-up a method implementation for some object. I know this skips over the origin and abstract concepts around objects as they were found in the Smalltalk language, but that is besides the point. OOP as we know it is mostly designed around a mostly  antiquated run-time involving pointers and vtables. What I&#39;m getting at, is that the abstractions in a language are often very much guided by the underlying run-time implementation. That means that in C++ the idea of classes makes sense. In Python we already have a very different view of an object, as everything is based around objects being hashmaps with some commonly understood interface. In Julia, having such a different run-time, multiple dispatch makes sense. Quite similar to the idea that the kind of music we make or hear depends on the setting in which it is staged (opera house without electric amplification, a living room setting, a noisy café or earbuds on a daily commute) and the available technology, more so than other cultural considerations. Meanwhile, we have entire schools of thought on how to organise code and design architectures around larger code bases. These ideas have been heavily influenced by the tools of the time: Java and C++. So, all that considered, what do we understand by Object Oriented Programming?</p><ul><li>Compartimenting program state: data hiding, modularization</li><li>Message passing between objects: similar to above, an object&#39;s behaviour can be completely understood from the way we poke sticks at it.</li><li>Abstraction over interfaces: the interface is the outer shell of an object. If the implementations are widely different but the interface is the same, we can freely interchange objects of different types in cases of heterogeneous data.</li><li>Inheritance or composition: we can use smaller objects to build larger ones. This can be done by inheritance, whereby the larger object behaves the same as the smaller one, except it can do more. The other way is by composition: we wrap the smaller object into the larger one, defining a new interface, but retaining the functionality.</li></ul><p>In Julia we can achieve all these goals with multiple dispatch, except inheritance. Keep in mind that Julia is a dynamically typed language. Not only that, it fully embraces being dynamically typed through the dispatch mechanism.</p><h2 id="Functions,-Methods,-Interfaces"><a class="docs-heading-anchor" href="#Functions,-Methods,-Interfaces">Functions, Methods, Interfaces</a><a id="Functions,-Methods,-Interfaces-1"></a><a class="docs-heading-anchor-permalink" href="#Functions,-Methods,-Interfaces" title="Permalink"></a></h2><p>Ok, now we know: Julia doesn&#39;t have classes. How do we then organize our code? What are the means of abstraction? A common pattern is to define methods around types with similar utility. Suppose we want to write our own collection type, say a circular buffer that overwrites itself, only remembering the last <span>$n$</span> items that were added.</p><pre><code class="language-julia hljs">mutable struct CircularBuffer{T}
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Objects, Inheritance and Modules in Julia · ModuleMixins.jl</title><meta name="title" content="Objects, Inheritance and Modules in Julia · ModuleMixins.jl"/><meta property="og:title" content="Objects, Inheritance and Modules in Julia · ModuleMixins.jl"/><meta property="twitter:title" content="Objects, Inheritance and Modules in Julia · ModuleMixins.jl"/><meta name="description" content="Documentation for ModuleMixins.jl."/><meta property="og:description" content="Documentation for ModuleMixins.jl."/><meta property="twitter:description" content="Documentation for ModuleMixins.jl."/><meta property="og:url" content="https://jhidding.github.io/ModuleMixins.jl/30-blog/"/><meta property="twitter:url" content="https://jhidding.github.io/ModuleMixins.jl/30-blog/"/><link rel="canonical" href="https://jhidding.github.io/ModuleMixins.jl/30-blog/"/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../">ModuleMixins.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">ModuleMixins</a></li><li><a class="tocitem" href="../10-introduction/">Introduction</a></li><li><a class="tocitem" href="../20-example/">Example</a></li><li class="is-active"><a class="tocitem" href>Objects, Inheritance and Modules in Julia</a><ul class="internal"><li><a class="tocitem" href="#The-JIT-compiler"><span>The JIT compiler</span></a></li><li><a class="tocitem" href="#Object-Oriented-Programming"><span>Object Oriented Programming</span></a></li><li><a class="tocitem" href="#Functions,-Methods,-Interfaces"><span>Functions, Methods, Interfaces</span></a></li><li><a class="tocitem" href="#Composition-over-Inheritance"><span>Composition over Inheritance</span></a></li><li><a class="tocitem" href="#Composing-Modules"><span>Composing Modules</span></a></li><li><a class="tocitem" href="#Resources"><span>Resources</span></a></li></ul></li><li><a class="tocitem" href="../50-implementation/">Implementation</a></li><li><a class="tocitem" href="../90-contributing/">Contributing guidelines</a></li><li><a class="tocitem" href="../91-developer/">Developer documentation</a></li><li><a class="tocitem" href="../95-reference/">Reference</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Objects, Inheritance and Modules in Julia</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Objects, Inheritance and Modules in Julia</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/jhidding/ModuleMixins.jl/blob/main/docs/src/30-blog.md#" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Objects,-Inheritance-and-Modules-in-Julia"><a class="docs-heading-anchor" href="#Objects,-Inheritance-and-Modules-in-Julia">Objects, Inheritance and Modules in Julia</a><a id="Objects,-Inheritance-and-Modules-in-Julia-1"></a><a class="docs-heading-anchor-permalink" href="#Objects,-Inheritance-and-Modules-in-Julia" title="Permalink"></a></h1><p>Julia is an amazing programming language that finds its use mainly in the hands of scientific modelers. Julia combines a welcoming syntax that doesn&#39;t scare new users with stellar performance rivaling C++ and Fortran. While Julia is easy to get into – the basics are a hybrid between Python and Matlab – there are some quirks to the language that change the way you need to think about overall program architecture: there are no objects. However, don&#39;t be discouraged: there is a reason for everything. I&#39;ll explain not only how we can work around the lack of objects, but also to embrace it! Last but not least, I present a new module to plug the final hole in the sea of abstractions that is left by the absence of objects: mixins, but more on that later.</p><h2 id="The-JIT-compiler"><a class="docs-heading-anchor" href="#The-JIT-compiler">The JIT compiler</a><a id="The-JIT-compiler-1"></a><a class="docs-heading-anchor-permalink" href="#The-JIT-compiler" title="Permalink"></a></h2><p>Julia aims to be both user-friendly and fast to execute. To achieve this, we get the wonderful mix of a dynamically typed language that is compiled to machine instructions, just-in-time (JIT). This works as follows: when a function is called we know the types of the arguments (the type signature) that are given as input, and the compiler generates optimized code for that specific type signature. When the function is called again with the same signature, the compiled version is reused from cache.</p><h3 id="Multiple-dispatch"><a class="docs-heading-anchor" href="#Multiple-dispatch">Multiple dispatch</a><a id="Multiple-dispatch-1"></a><a class="docs-heading-anchor-permalink" href="#Multiple-dispatch" title="Permalink"></a></h3><p>Since the type signature is such an integral part of the execution model, there is a nice trick we can play: multiple dispatch. We can redefine the same method for many different type signatures (similar to function overloading in C++). For instance, the addition operator has (as of Julia 1.10) 189 method implementations.</p><h3 id="Multiple-dispatch-supersedes-objects"><a class="docs-heading-anchor" href="#Multiple-dispatch-supersedes-objects">Multiple dispatch supersedes objects</a><a id="Multiple-dispatch-supersedes-objects-1"></a><a class="docs-heading-anchor-permalink" href="#Multiple-dispatch-supersedes-objects" title="Permalink"></a></h3><p>Multiple dispatch leads us to our first comparison with object oriented languages: abstract method calls are a dispatch on just the first parameter (self or this). In this respect the level of abstraction that multiple dispatch offers is more powerful than the idea of tying method implementations to compound types (i.e. objects). However, object oriented programming is more than just objects. Let&#39;s see how Julia compares.</p><h2 id="Object-Oriented-Programming"><a class="docs-heading-anchor" href="#Object-Oriented-Programming">Object Oriented Programming</a><a id="Object-Oriented-Programming-1"></a><a class="docs-heading-anchor-permalink" href="#Object-Oriented-Programming" title="Permalink"></a></h2><p>Object Oriented Programming as we know it today is a group of abstractions guided around the principle of having some way to dynamically look-up a method implementation for some object. I know this skips over the origin and abstract concepts around objects as they were found in the Smalltalk language, but that is besides the point. OOP as we know it is mostly designed around a mostly  antiquated run-time involving pointers and vtables. What I&#39;m getting at, is that the abstractions in a language are often very much guided by the underlying run-time implementation. That means that in C++ the idea of classes makes sense. In Python we already have a very different view of an object, as everything is based around objects being hashmaps with some commonly understood interface. In Julia, having such a different run-time, multiple dispatch makes sense. Quite similar to the idea that the kind of music we make or hear depends on the setting in which it is staged (opera house without electric amplification, a living room setting, a noisy café or earbuds on a daily commute) and the available technology, more so than other cultural considerations. Meanwhile, we have entire schools of thought on how to organise code and design architectures around larger code bases. These ideas have been heavily influenced by the tools of the time: Java and C++. So, all that considered, what do we understand by Object Oriented Programming?</p><ul><li>Compartimenting program state: data hiding, modularization</li><li>Message passing between objects: similar to above, an object&#39;s behaviour can be completely understood from the way we poke sticks at it.</li><li>Abstraction over interfaces: the interface is the outer shell of an object. If the implementations are widely different but the interface is the same, we can freely interchange objects of different types in cases of heterogeneous data.</li><li>Inheritance or composition: we can use smaller objects to build larger ones. This can be done by inheritance, whereby the larger object behaves the same as the smaller one, except it can do more. The other way is by composition: we wrap the smaller object into the larger one, defining a new interface, but retaining the functionality.</li></ul><p>In Julia we can achieve all these goals with multiple dispatch, except inheritance. Keep in mind that Julia is a dynamically typed language. Not only that, it fully embraces being dynamically typed through the dispatch mechanism.</p><h2 id="Functions,-Methods,-Interfaces"><a class="docs-heading-anchor" href="#Functions,-Methods,-Interfaces">Functions, Methods, Interfaces</a><a id="Functions,-Methods,-Interfaces-1"></a><a class="docs-heading-anchor-permalink" href="#Functions,-Methods,-Interfaces" title="Permalink"></a></h2><p>Ok, now we know: Julia doesn&#39;t have classes. How do we then organize our code? What are the means of abstraction? A common pattern is to define methods around types with similar utility. Suppose we want to write our own collection type, say a circular buffer that overwrites itself, only remembering the last <span>$n$</span> items that were added.</p><pre><code class="language-julia hljs">mutable struct CircularBuffer{T}
     content::Vector{T}
     endloc::Int
     length::Int
@@ -27,7 +27,206 @@ end</code></pre><p>We could do the following:</p><pre><code class="language-juli
     x::Float64
     y::Float64
     colour::Colour
-end</code></pre><p>For the <code>Point</code> type we had defined an addition operator. How would you define that for the <code>ColouredPoint</code>? How do we handle the colour information?</p><p>In this example it is quite obvious that the beter other option is to use <strong>composition</strong>.</p><pre><code class="language-julia hljs">struct ColouredPoint
+end</code></pre><p>For the <code>Point</code> type we had defined an addition operator. How would you define that for the <code>ColouredPoint</code>? How do we handle the colour information?</p><p>In this example it is quite obvious that the better other option is to use <strong>composition</strong>.</p><pre><code class="language-julia hljs">struct ColouredPoint
     point::Point
     colour::Colour
-end</code></pre><p>In general, for most cases it is considered best practice to prefer composition over inheritance. Good for us, since Julia does not implement inheritance.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../20-example/">« Example</a><a class="docs-footer-nextpage" href="../50-implementation/">Implementation »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.7.0 on <span class="colophon-date" title="Wednesday 11 September 2024 06:13">Wednesday 11 September 2024</span>. Using Julia version 1.10.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+end</code></pre><p>In general, for most cases it is considered best practice to prefer composition over inheritance. Good for us, since Julia does not implement inheritance.</p><h2 id="Composing-Modules"><a class="docs-heading-anchor" href="#Composing-Modules">Composing Modules</a><a id="Composing-Modules-1"></a><a class="docs-heading-anchor-permalink" href="#Composing-Modules" title="Permalink"></a></h2><p>Now I present another example which requires a different form of inheritance, and is not so easily expressed using object composition (of the kind shown above). Moreover, we&#39;ll see that we can combine the idea of an <strong>interface</strong> in Julia with that of a <strong>module</strong>, creating something that works much the same as a class in other languages.</p><p>We need to get an overview of the problem: we&#39;ll implement a simple physics model, first without any abstraction. Then we&#39;ll use modules and mixins to restructure that code.</p><p>Our model has an <code>Input</code> structure to store all the parameters, and a <code>State</code> structure that is updated on every iteration. We may start with a monolithic implementation of a model of a bouncing weight on a spring. The spring exerts a force proportional to the position of the weight.</p><pre><code class="language-julia hljs">#| file: examples/just_a_spring.jl
+module Spring
+
+using Unitful
+
+&lt;&lt;just-a-spring&gt;&gt;
+
+end
+
+module Script
+using Unitful
+using CairoMakie
+using ..Spring
+
+&lt;&lt;spring-run-model&gt;&gt;
+&lt;&lt;spring-plot-result&gt;&gt;
+&lt;&lt;just-a-spring-main&gt;&gt;
+end
+
+Script.main()</code></pre><p>First of all, the input structure: we need to specify the properties of the spring (spring constant, and weight of the moving object), the specifics of our time integration (in this case, the time step and final time), and the initial conditions. In a larger model there will be many more parameters.</p><pre><code class="language-julia hljs">#| id: just-a-spring
+@kwdef struct Input
+    initial_position::typeof(1.0u&quot;m&quot;)
+    spring_constant::typeof(1.0u&quot;N/m&quot;)
+    weight::typeof(1.0u&quot;kg&quot;)
+    time_step::typeof(1.0u&quot;s&quot;)
+    time_end::typeof(1.0u&quot;s&quot;)
+end</code></pre><p>A typical model will have some mutable <code>State</code>.</p><pre><code class="language-julia hljs">#| id: just-a-spring
+@kwdef mutable struct State
+    time::typeof(1.0u&quot;s&quot;)
+    position::typeof(1.0u&quot;m&quot;)
+    velocity::typeof(1.0u&quot;m/s&quot;)
+end</code></pre><p>The first state is created from the given input.</p><pre><code class="language-julia hljs">#| id: just-a-spring
+init(input::Input) =
+    State(time = 0.0u&quot;s&quot;, position = input.initial_position, velocity = 0.0u&quot;m/s&quot;)</code></pre><p>Then we <code>step!</code> over this state, until some condition is met.</p><pre><code class="language-julia hljs">#| id: just-a-spring
+function step!(input::Input, state::State)
+    Δt = input.time_step
+    Δx = state.velocity * Δt
+    Δv = -state.position * input.spring_constant / input.weight * Δt
+
+    state.time += Δt
+    state.position += Δx
+    state.velocity += Δv
+end</code></pre><h3 id="First-class-modules"><a class="docs-heading-anchor" href="#First-class-modules">First class modules</a><a id="First-class-modules-1"></a><a class="docs-heading-anchor-permalink" href="#First-class-modules" title="Permalink"></a></h3><p>In Julia, modules are first-class objects, meaning they can be passed around same as integers or functions. Given that we expect a module to have an <code>init</code> and <code>step!</code> function as well as a <code>State</code> type, we can write a generic function for running our model.</p><pre><code class="language-julia hljs">#| id: spring-run-model
+function run(model::Module, input)
+    state = model.init(input)
+    Channel{model.State}() do ch
+        while state.time &lt; input.time_end
+            model.step!(input, state)
+            put!(ch, deepcopy(state))
+        end
+    end
+end</code></pre><pre><code class="language-julia hljs">#| id: spring-plot-result
+function plot_result(output)
+    times = [f.time for f in output]
+    pos = [f.position for f in output]
+
+    fig = Figure()
+    ax = Axis(fig[1, 1];
+        dim1_conversion = Makie.UnitfulConversion(u&quot;s&quot;),
+        dim2_conversion = Makie.UnitfulConversion(u&quot;m&quot;),
+    )
+    lines!(ax, times, pos)
+    fig
+end</code></pre><pre><code class="language-julia hljs">#| id: just-a-spring-main
+function main()
+    input = Spring.Input(
+        time_step = 0.01u&quot;s&quot;,
+        time_end = 5.0u&quot;s&quot;,
+        spring_constant = 50.0u&quot;N/m&quot;,
+        initial_position = 1.0u&quot;m&quot;,
+        weight = 1.0u&quot;kg&quot;,
+    )
+
+    output = run(Spring, input) |&gt; collect
+    fig = plot_result(output)
+    save(&quot;docs/src/fig/just-a-spring.svg&quot;, fig)
+end</code></pre><h3 id="With-Mixins"><a class="docs-heading-anchor" href="#With-Mixins">With Mixins</a><a id="With-Mixins-1"></a><a class="docs-heading-anchor-permalink" href="#With-Mixins" title="Permalink"></a></h3><p>Now, we implement the same model using <code>ModuleMixins.jl</code>.</p><pre><code class="language-julia hljs">#| file: examples/mixin_a_spring.jl
+using ModuleMixins: @compose
+
+module Common
+    &lt;&lt;spring-common&gt;&gt;
+end
+
+@compose module Time
+    using Unitful
+    using ..Common
+
+    &lt;&lt;spring-time&gt;&gt;
+end
+
+@compose module Spring
+    @mixin Time
+    using Unitful
+    using ..Common
+
+    &lt;&lt;spring-spring&gt;&gt;
+end
+
+&lt;&lt;mixin-leap-frog&gt;&gt;
+
+module Script
+    using Unitful
+    using CairoMakie
+    using ModuleMixins
+
+    using ..Time
+    using ..Spring
+    using ..Common
+    using ..LeapFrog
+
+    &lt;&lt;spring-run-model&gt;&gt;
+    &lt;&lt;spring-plot-result&gt;&gt;
+    &lt;&lt;mixin-spring-main&gt;&gt;
+end
+
+Script.main()</code></pre><p>We start with some common super types. These are not strictly needed, but make our code a bit more readable.</p><pre><code class="language-julia hljs">#| id: spring-common
+export AbstractInput, AbstractState
+
+abstract type AbstractInput end
+abstract type AbstractState end</code></pre><pre><code class="language-julia hljs">#| id: spring-time
+@kwdef struct Input &lt;: AbstractInput
+    time_step::typeof(1.0u&quot;s&quot;)
+    time_end::typeof(1.0u&quot;s&quot;)
+end
+
+@kwdef mutable struct State &lt;: AbstractState
+    time::typeof(1.0u&quot;s&quot;)
+end
+
+function init(input::AbstractInput)
+    State(time = 0.0u&quot;s&quot;)
+end
+
+function step!(input::AbstractInput, state::AbstractState; fraction::Float64 = 1.0)
+    state.time += fraction * input.time_step
+end</code></pre><pre><code class="language-julia hljs">#| id: spring-spring
+@kwdef struct Input &lt;: AbstractInput
+    initial_position::typeof(1.0u&quot;m&quot;)
+    spring_constant::typeof(1.0u&quot;N/m&quot;)
+    weight::typeof(1.0u&quot;kg&quot;)
+end
+
+@kwdef mutable struct State &lt;: AbstractState
+    position::typeof(1.0u&quot;m&quot;)
+    velocity::typeof(1.0u&quot;m/s&quot;)
+end
+
+accelleration(input::AbstractInput, state::AbstractState) =
+    -state.position * input.spring_constant / input.weight
+
+step!(input::AbstractInput, state::AbstractState) =
+    let a = accelleration(input, state)
+        state.position += state.velocity * input.time_step
+        state.velocity += a * input.time_step
+        Time.step!(input, state)
+    end
+
+init(input::AbstractInput) =
+    State(time = 0.0u&quot;s&quot;, position = input.initial_position, velocity = 0.0u&quot;m/s&quot;)</code></pre><h3 id="Using-a-better-integrator"><a class="docs-heading-anchor" href="#Using-a-better-integrator">Using a better integrator</a><a id="Using-a-better-integrator-1"></a><a class="docs-heading-anchor-permalink" href="#Using-a-better-integrator" title="Permalink"></a></h3><pre><code class="language-julia hljs">#| id: spring-spring
+kick!(input::AbstractInput, state::AbstractState) =
+    state.velocity += accelleration(input, state) * input.time_step
+
+drift!(input::AbstractInput, state::AbstractState) =
+    state.position += state.velocity * input.time_step</code></pre><pre><code class="language-julia hljs">#| id: mixin-leap-frog
+module LeapFrog
+    using ..Common
+    using ..Time
+
+    function leap_frog(model::Module)
+        function (input::AbstractInput, state::AbstractState)
+            model.kick!(input, state)
+            Time.step!(input, state; fraction = 0.5)
+            model.drift!(input, state)
+            Time.step!(input, state; fraction = 0.5)
+        end
+    end
+end</code></pre><pre><code class="language-julia hljs">#| id: mixin-spring-main
+@compose module LeapFrogSpring
+    @mixin Spring
+    using ..LeapFrog: leap_frog
+
+    Base.convert(::Type{State}, s::Spring.State) =
+        State(time = s.time, velocity = s.velocity, position = s.position)
+
+    const init = Spring.init
+    const step! = leap_frog(Spring)
+end</code></pre><pre><code class="language-julia hljs">#| id: mixin-spring-main
+function main()
+    input = Spring.Input(
+        time_step = 0.01u&quot;s&quot;,
+        time_end = 5.0u&quot;s&quot;,
+        spring_constant = 50.0u&quot;N/m&quot;,
+        initial_position = 1.0u&quot;m&quot;,
+        weight = 1.0u&quot;kg&quot;,
+    )
+
+    output = run(LeapFrogSpring, input) |&gt; collect
+    fig = plot_result(output)
+    save(&quot;docs/src/fig/mixin-a-spring.svg&quot;, fig)
+end</code></pre><h2 id="Resources"><a class="docs-heading-anchor" href="#Resources">Resources</a><a id="Resources-1"></a><a class="docs-heading-anchor-permalink" href="#Resources" title="Permalink"></a></h2><ul><li><a href="https://scientificcoder.com/fruity-composable-design-patterns-in-julia">Matthijs Cox&#39;s blog post on fruity design patterns</a></li></ul></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../20-example/">« Example</a><a class="docs-footer-nextpage" href="../50-implementation/">Implementation »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.7.0 on <span class="colophon-date" title="Monday 16 September 2024 07:23">Monday 16 September 2024</span>. Using Julia version 1.10.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
