@@ -3,7 +3,6 @@
 module Spring
 
 using Unitful
-using CairoMakie
 
 # ~/~ begin <<docs/src/30-blog.md#just-a-spring>>[init]
 #| id: just-a-spring
@@ -44,8 +43,12 @@ end
 end
 
 module Script
-# ~/~ begin <<docs/src/30-blog.md#run-model>>[init]
-#| id: run-model
+using Unitful
+using CairoMakie
+using ..Spring
+
+# ~/~ begin <<docs/src/30-blog.md#spring-run-model>>[init]
+#| id: spring-run-model
 function run(model::Module, input)
     state = model.init(input)
     Channel{model.State}() do ch
@@ -55,8 +58,10 @@ function run(model::Module, input)
         end
     end
 end
-
-function plot_result(model::Module, output)
+# ~/~ end
+# ~/~ begin <<docs/src/30-blog.md#spring-plot-result>>[init]
+#| id: spring-plot-result
+function plot_result(output)
     times = [f.time for f in output]
     pos = [f.position for f in output]
 
@@ -68,9 +73,11 @@ function plot_result(model::Module, output)
     lines!(ax, times, pos)
     fig
 end
-
+# ~/~ end
+# ~/~ begin <<docs/src/30-blog.md#just-a-spring-main>>[init]
+#| id: just-a-spring-main
 function main()
-    input = Input(
+    input = Spring.Input(
         time_step = 0.01u"s",
         time_end = 5.0u"s",
         spring_constant = 50.0u"N/m",
@@ -78,7 +85,7 @@ function main()
         weight = 1.0u"kg",
     )
 
-    output = run(input) |> collect
+    output = run(Spring, input) |> collect
     fig = plot_result(output)
     save("docs/src/fig/just-a-spring.svg", fig)
 end
