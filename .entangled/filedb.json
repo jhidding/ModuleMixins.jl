@@ -13,56 +13,56 @@
     {
       "deps": null,
       "hexdigest": "adba57bb10d5ce89697f04018ba07de4c7e1a99b9c4fa54a67c0edfec7d9d7a5",
-      "modified": "2024-09-09T13:51:17.539387",
+      "modified": "2024-07-28T23:17:33.674075",
       "path": "docs/src/10-introduction.md",
       "size": 2730
     },
     {
       "deps": null,
       "hexdigest": "e91f106b2c9ad62a37404a9a6aec30cdce5aa322591687369192059c330e5565",
-      "modified": "2024-09-09T13:51:17.539387",
+      "modified": "2024-07-29T00:36:44.080416",
       "path": "docs/src/20-example.md",
       "size": 2943
     },
     {
       "deps": null,
-      "hexdigest": "fbdccc21ec0c4d97da3991463ab4cd25ca5013d8b044a9bb1e7e74bb70148bea",
-      "modified": "2024-09-17T07:58:02.874246",
+      "hexdigest": "e255ff6cc046c7dcebbd37ff024ed16bbe6d2dbf53f6f8a9e7d32551a7bf72d8",
+      "modified": "2024-09-17T22:10:12.650908",
       "path": "docs/src/30-blog.md",
-      "size": 20606
+      "size": 23827
     },
     {
       "deps": null,
       "hexdigest": "29e89b8757adde892bba76b3a5788947807a707981daaebc8671d619df9b3341",
-      "modified": "2024-09-09T13:51:17.539387",
+      "modified": "2024-07-29T01:23:39.160237",
       "path": "docs/src/50-implementation.md",
       "size": 10455
     },
     {
       "deps": null,
       "hexdigest": "6b49241291ce2ab6f257a94b4acc9b50ad7b064da8eccf0ad2dcc6485e5f9753",
-      "modified": "2024-09-09T13:51:17.539387",
+      "modified": "2024-07-28T23:45:57.598882",
       "path": "docs/src/90-contributing.md",
       "size": 1164
     },
     {
       "deps": null,
       "hexdigest": "61cece47e882115759b6c23a5a39b57f19a9b63dc0c6c564af84c9f9f95d911b",
-      "modified": "2024-09-09T13:51:17.540387",
+      "modified": "2024-07-28T23:45:57.657882",
       "path": "docs/src/91-developer.md",
       "size": 5976
     },
     {
       "deps": null,
       "hexdigest": "6e3ec6c55da8120da528b179c702ff70788ac49a8d367e8ba72ea948594d64db",
-      "modified": "2024-09-09T13:51:17.540387",
+      "modified": "2024-07-23T07:35:47.103011",
       "path": "docs/src/95-reference.md",
       "size": 184
     },
     {
       "deps": null,
       "hexdigest": "c0b60b758f7f6a83d625017827e8ca26aef37bf4b13bf28ad4cd06cda06e4b84",
-      "modified": "2024-09-09T13:51:17.540387",
+      "modified": "2024-07-29T01:23:39.160237",
       "path": "docs/src/index.md",
       "size": 1054
     },
@@ -71,7 +71,7 @@
         "docs/src/30-blog.md"
       ],
       "hexdigest": "f073c9044a0e8581e169111795c58db8518fe122fdfbd68948b24b6d5af7df8a",
-      "modified": "2024-09-17T00:11:50.276780",
+      "modified": "2024-09-17T08:37:35.113869",
       "path": "examples/just_a_spring.jl",
       "size": 3304
     },
@@ -79,17 +79,26 @@
       "deps": [
         "docs/src/30-blog.md"
       ],
-      "hexdigest": "131ca4d7b894bb5d4f6a99e537dfcffdb3d65669e55febdb3fbd04e69d0cf26b",
-      "modified": "2024-09-17T07:58:43.337930",
+      "hexdigest": "bc3b7cf1ed5238e3837121e4343560f0bf1112d6bfb2305df707a54b3cc78000",
+      "modified": "2024-09-17T22:10:12.731909",
       "path": "examples/mixin_a_spring.jl",
-      "size": 5125
+      "size": 5896
+    },
+    {
+      "deps": [
+        "docs/src/30-blog.md"
+      ],
+      "hexdigest": "ac1acef15bea02da07d17b9a1efd7ad6e61a8abd948b197ea8bb1a23c29c17b6",
+      "modified": "2024-09-17T16:44:49.671998",
+      "path": "examples/spring-benchmark.jl",
+      "size": 7081
     },
     {
       "deps": [
         "docs/src/20-example.md"
       ],
       "hexdigest": "e8c55b5b44fe6b36028ec8b3bcb7c20559a1dddf32f38fa446d273fdb14cb018",
-      "modified": "2024-09-09T13:51:17.540387",
+      "modified": "2024-07-29T00:36:26.558318",
       "path": "examples/spring.jl",
       "size": 2723
     },
@@ -98,7 +107,7 @@
         "docs/src/50-implementation.md"
       ],
       "hexdigest": "75d5bd5b58d19195f67cc3eb9dc08faaaccaac7d21e2c6728be290139b08aea5",
-      "modified": "2024-09-09T13:51:17.540387",
+      "modified": "2024-07-29T01:23:39.160237",
       "path": "src/ModuleMixins.jl",
       "size": 5981
     },
@@ -107,7 +116,7 @@
         "docs/src/50-implementation.md"
       ],
       "hexdigest": "b61702a7c994336bb2b6891d54e9f9307e2cd2f0ffec5b59585e638c0fd26796",
-      "modified": "2024-09-09T13:51:17.540387",
+      "modified": "2024-07-29T00:29:55.385132",
       "path": "test/runtests.jl",
       "size": 3606
     }
@@ -116,9 +125,10 @@
   "target": [
     "examples/just_a_spring.jl",
     "examples/mixin_a_spring.jl",
+    "examples/spring-benchmark.jl",
     "examples/spring.jl",
     "src/ModuleMixins.jl",
     "test/runtests.jl"
   ],
-  "version": "2.1.6"
+  "version": "2.1.7"
 }

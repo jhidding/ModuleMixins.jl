@@ -299,6 +299,8 @@ using ModuleMixins: @compose
 
 <<spring-model>>
 <<mixin-a-spring>>
+
+Script.main()
 ```
 
 We define some common types:
@@ -306,10 +308,22 @@ We define some common types:
 ```julia
 #| id: mixin-a-spring
 module Common
-    export AbstractInput, AbstractState
+    export AbstractInput, AbstractState, Model, run
 
     abstract type AbstractInput end
     abstract type AbstractState end
+
+    struct Model{T} end
+
+    function run(model::Type{Model{M}}, input) where M
+        state = M.init(input)
+        Channel{M.State}() do ch
+            while state.time < input.time_end
+                M.step!(input, state)
+                put!(ch, deepcopy(state))
+            end
+        end
+    end
 end
 ```
 
@@ -400,6 +414,17 @@ module LeapFrog
             Time.step!(input, state; fraction = 0.5)
         end
     end
+
+    function leap_frog_trait(::Type{Model{T}}) where T
+        function (input::AbstractInput, state::AbstractState)
+            T.kick!(input, state)
+            Time.step!(input, state; fraction = 0.5)
+            T.drift!(input, state)
+            Time.step!(input, state; fraction = 0.5)
+        end
+    end
+
+    leap_frog_front(model::Module) = leap_frog_trait(Model{model})
 end
 ```
 
@@ -409,8 +434,9 @@ Now, let's see if we can extend our previous implementation of `Spring` to work 
 #| id: mixin-a-spring
 @compose module LeapFrogSpring
     @mixin Spring
+    using ..Common
     using ..Spring: energy, init, accelleration
-    using ..LeapFrog: leap_frog
+    using ..LeapFrog
 
     Base.convert(::Type{State}, s::Spring.State) =
 		State(time=s.time, position=s.position, velocity=s.velocity)
@@ -421,7 +447,8 @@ Now, let's see if we can extend our previous implementation of `Spring` to work 
     drift!(input::AbstractInput, state::AbstractState) =
         state.position += state.velocity * input.time_step
 
-    const step! = leap_frog(LeapFrogSpring)
+    const step! = LeapFrog.leap_frog_front(LeapFrogSpring)
+    const step_trait! = LeapFrog.leap_frog_trait(Model{LeapFrogSpring})
 end
 ```
 
@@ -449,7 +476,6 @@ end
         using ..Time
         using ..Spring
         using ..Common
-        using ..Model: run
         using ..LeapFrogSpring
 
         <<spring-plot>>
@@ -468,13 +494,15 @@ end
             save("docs/src/fig/mixin-a-spring.svg", fig)
         end
     end
-
-    Script.main()
     ```
 
-## Diamond dependencies
+So far, what we did could have been achieved with different techniques, like dispatch and trait types. The real reason why we use `ModuleMixins` is to handle the composition of data (i.e. `struct` types and their fields). What we've seen here, is that the way `ModuleMixins` solves that problem blends nicely with an almost object-oriented style of programming.
 
-We've seen how we can use `ModuleMixins` to compose models from smaller components. The `Time` component could be reused for a different model, and we could use what we had (a forward Euler method) and extend it (to Leap-frog method), giving us both **reusability** and **extensibility**. Consider that more complicated models will have many such components, making the advantage of using `ModuleMixins` more visible.
+We've seen how we can use `ModuleMixins` to compose models from smaller components. The `Time` component could be reused for a different model, and we could use what we had (a forward Euler method) and extend it (to Leap-frog method), giving us both **reusability** and **extensibility**. 
+
+Where `ModuleMixins` is absolutely needed, is when our problem grows in complexity, such that data composition is no longer trivially solved by ordinary object composition. The minimal example of such a problem occurs when we have a diamond shaped dependency tree.
+
+## Diamond dependencies
 
 There is a case where using a construct similar to `ModuleMixins` becomes inevitable: the diamond dependency pattern.
 
@@ -516,6 +544,8 @@ graph TD
     A --> C --> D
 ```
 
+### What is special about the diamond?
+
 If we had used composition to create these dependencies, we would have arrived at a different conclusion:
 
 ```mermaid
@@ -531,6 +561,75 @@ graph TD
 
 We end up with **two** copies of `A`. We could implement this so that `D.b.a` and `D.c.a` point to the same object, but doing so increases the amount of indirection and complexity in our code needlessly.
 
+## Performance
+
+```julia
+#| file: examples/spring-benchmark.jl
+using BenchmarkTools
+using ModuleMixins: @compose
+
+<<mixin-a-spring>>
+
+module RawCompute
+    using ..Common: AbstractInput, Model
+    using ..LeapFrogSpring: Input, State
+    using Unitful
+
+    function run(input::Input)
+        state = State(time = 0.0u"s", position = input.initial_position, velocity = 0.0u"m/s")
+        n_steps = input.time_end / input.time_step |> Int
+
+        for i = 1:n_steps
+            a = -state.position * input.spring_constant / input.mass
+            state.velocity += a * input.time_step
+            state.position += state.velocity * input.time_step
+        end
+        return state
+    end
+
+    function run_abstract(::Type{Model{T}}, input::AbstractInput) where T
+        state = T.init(input)
+        n_steps = input.time_end / input.time_step |> Int
+
+        for i = 1:n_steps
+            T.step!(input, state)
+        end
+        return state
+    end
+
+    function run_trait(::Type{Model{T}}, input::AbstractInput) where T
+        state = T.init(input)
+        n_steps = input.time_end / input.time_step |> Int
+
+        for i = 1:n_steps
+            T.step_trait!(input, state)
+        end
+        return state
+    end
+
+    run_front(model::Module, input::AbstractInput) = run_abstract(Model{model}, input)
+end
+
+module Benchmark
+    using ..LeapFrogSpring
+    using Unitful
+
+    const input = LeapFrogSpring.Input(
+        time_step = 0.01u"s",
+        time_end = 5.0u"s",
+        spring_constant = 50.0u"N/m",
+        initial_position = 1.0u"m",
+        mass = 1.0u"kg",
+    )
+end
+
+using .Common
+# @benchmark RawCompute.run(Benchmark.input)
+# @benchmark RawCompute.run_abstract(LeapFrogSpring, Benchmark.input)
+@benchmark RawCompute.run_front(LeapFrogSpring, Benchmark.input)
+```
+
 ## Resources
 
 - [Matthijs Cox's blog post on fruity design patterns](https://scientificcoder.com/fruity-composable-design-patterns-in-julia)
+- [Emergent Features of JuliaLang, part II: traits](https://www.juliabloggers.com/the-emergent-features-of-julialang-part-ii-traits/)

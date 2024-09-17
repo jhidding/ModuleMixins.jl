@@ -1,25 +1,8 @@
-# ~/~ begin <<docs/src/30-blog.md#examples/mixin_a_spring.jl>>[init]
-#| file: examples/mixin_a_spring.jl
-#| classes: ["task"]
-#| creates:
-#|   - docs/src/fig/mixin-a-spring.svg
-#| collect: figures
+# ~/~ begin <<docs/src/30-blog.md#examples/spring-benchmark.jl>>[init]
+#| file: examples/spring-benchmark.jl
+using BenchmarkTools
 using ModuleMixins: @compose
 
-# ~/~ begin <<docs/src/30-blog.md#spring-model>>[init]
-#| id: spring-model
-module Model
-    function run(model::Module, input)
-        state = model.init(input)
-        Channel{model.State}() do ch
-            while state.time < input.time_end
-                model.step!(input, state)
-                put!(ch, deepcopy(state))
-            end
-        end
-    end
-end
-# ~/~ end
 # ~/~ begin <<docs/src/30-blog.md#mixin-a-spring>>[init]
 #| id: mixin-a-spring
 module Common
@@ -202,5 +185,61 @@ module Script
 end
 # ~/~ end
 
-Script.main()
+module RawCompute
+    using ..Common: AbstractInput, Model
+    using ..LeapFrogSpring: Input, State
+    using Unitful
+
+    function run(input::Input)
+        state = State(time = 0.0u"s", position = input.initial_position, velocity = 0.0u"m/s")
+        n_steps = input.time_end / input.time_step |> Int
+
+        for i = 1:n_steps
+            a = -state.position * input.spring_constant / input.mass
+            state.velocity += a * input.time_step
+            state.position += state.velocity * input.time_step
+        end
+        return state
+    end
+
+    function run_abstract(::Type{Model{T}}, input::AbstractInput) where T
+        state = T.init(input)
+        n_steps = input.time_end / input.time_step |> Int
+
+        for i = 1:n_steps
+            T.step!(input, state)
+        end
+        return state
+    end
+
+    function run_trait(::Type{Model{T}}, input::AbstractInput) where T
+        state = T.init(input)
+        n_steps = input.time_end / input.time_step |> Int
+
+        for i = 1:n_steps
+            T.step_trait!(input, state)
+        end
+        return state
+    end
+
+    run_front(model::Module, input::AbstractInput) = run_abstract(Model{model}, input)
+end
+
+module Benchmark
+    using ..LeapFrogSpring
+    using Unitful
+
+    const input = LeapFrogSpring.Input(
+        time_step = 0.01u"s",
+        time_end = 5.0u"s",
+        spring_constant = 50.0u"N/m",
+        initial_position = 1.0u"m",
+        mass = 1.0u"kg",
+    )
+end
+
+using .Common
+# @benchmark RawCompute.run(Benchmark.input)
+# @benchmark RawCompute.run_abstract(LeapFrogSpring, Benchmark.input)
+@benchmark RawCompute.run_front(LeapFrogSpring, Benchmark.input)
 # ~/~ end
