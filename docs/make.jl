@@ -1,5 +1,6 @@
 using ModuleMixins
 using Documenter
+using DocumenterMermaid
 
 DocMeta.setdocmeta!(ModuleMixins, :DocTestSetup, :(using ModuleMixins); recursive = true)
 

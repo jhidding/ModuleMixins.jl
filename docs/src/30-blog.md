@@ -109,41 +109,36 @@ In general, for most cases it is considered best practice to prefer composition 
 
 Now I present another example which requires a different form of inheritance, and is not so easily expressed using object composition (of the kind shown above). Moreover, we'll see that we can combine the idea of an **interface** in Julia with that of a **module**, creating something that works much the same as a class in other languages.
 
-We need to get an overview of the problem: we'll implement a simple physics model, first without any abstraction. Then we'll use modules and mixins to restructure that code.
+We need to get an overview of the problem: we'll implement a simple physics model, first without any abstraction. Then we'll use modules and mixins to restructure that code. Along the way you'll learn an interesting fact about physical modelling. We will model a bouncing weight on a spring. The spring exerts a force proportional to the position of the weight.
 
-Our model has an `Input` structure to store all the parameters, and a `State` structure that is updated on every iteration. We may start with a monolithic implementation of a model of a bouncing weight on a spring. The spring exerts a force proportional to the position of the weight.
+![Sketch of our model](fig/spring-sketch.svg)
 
-```julia
-#| file: examples/just_a_spring.jl
-module Spring
+Such a system is described by having a force proportional and opposite to the relative position of the weight. To model this system, we need to keep track of both the velocity and the position of the object.
 
-using Unitful
+Our model has an `Input` structure to store all the parameters, and a `State` structure that is updated on every iteration.
 
-<<just-a-spring>>
+```mermaid
+flowchart LR;
+    init("initial state")
+    check{"t &lt; t<sub>end</sub>?"}
+    step!["advance model"]
+    done("end program")
 
-end
-
-module Script
-using Unitful
-using CairoMakie
-using ..Spring
-
-<<spring-run-model>>
-<<spring-plot-result>>
-<<just-a-spring-main>>
-end
-
-Script.main()
+    init --> step! --> check
+    check -- true --> step!
+    check -- false --> done
 ```
 
 First of all, the input structure: we need to specify the properties of the spring (spring constant, and weight of the moving object), the specifics of our time integration (in this case, the time step and final time), and the initial conditions. In a larger model there will be many more parameters.
 
 ```julia
 #| id: just-a-spring
+using Unitful
+
 @kwdef struct Input
     initial_position::typeof(1.0u"m")
     spring_constant::typeof(1.0u"N/m")
-    weight::typeof(1.0u"kg")
+    mass::typeof(1.0u"kg")
     time_step::typeof(1.0u"s")
     time_end::typeof(1.0u"s")
 end
@@ -160,7 +155,7 @@ A typical model will have some mutable `State`.
 end
 ```
 
-The first state is created from the given input.
+The first state is created from the given input. Here, we only configure the initial position of the spring and hard-coded the initial velocity to zero.
 
 ```julia
 #| id: just-a-spring
@@ -175,7 +170,7 @@ Then we `step!` over this state, until some condition is met.
 function step!(input::Input, state::State)
     Δt = input.time_step
     Δx = state.velocity * Δt
-    Δv = -state.position * input.spring_constant / input.weight * Δt
+    Δv = -state.position * input.spring_constant / input.mass * Δt
 
     state.time += Δt
     state.position += Δx
@@ -183,55 +178,112 @@ function step!(input::Input, state::State)
 end
 ```
 
-### First class modules
-
-In Julia, modules are first-class objects, meaning they can be passed around same as integers or functions. Given that we expect a module to have an `init` and `step!` function as well as a `State` type, we can write a generic function for running our model.
+We'll go ahead and write the main loop in a generic way.
 
 ```julia
-#| id: spring-run-model
-function run(model::Module, input)
-    state = model.init(input)
-    Channel{model.State}() do ch
-        while state.time < input.time_end
-            model.step!(input, state)
-            put!(ch, deepcopy(state))
+#| id: just-a-spring
+function energy(input::Input, state::State)
+    k = state.velocity^2 * input.mass / 2
+    v = state.position^2 * input.spring_constant / 2
+    return k + v
+end
+```
+
+### Modules as classes
+
+In Julia, modules can be passed around much the same as integers or functions [^1]. Given that we expect a module to have an `init` and `step!` function as well as a `State` type, we can write a generic function for running our model.
+
+[^1]: That is, passed around as arguments to functions. However, modules cannot be created dynamically.
+
+We put the previous code inside a module called `Spring` and then write a `run` function that turns a module and input record into a sequence of output values.
+
+```julia
+#| id: spring-model
+module Model
+    function run(model::Module, input)
+        state = model.init(input)
+        Channel{model.State}() do ch
+            while state.time < input.time_end
+                model.step!(input, state)
+                put!(ch, deepcopy(state))
+            end
         end
     end
 end
 ```
 
-```julia
-#| id: spring-plot-result
-function plot_result(output)
-    times = [f.time for f in output]
-    pos = [f.position for f in output]
+Let's see what this does, by visualizing the output.
 
-    fig = Figure()
-    ax = Axis(fig[1, 1];
-        dim1_conversion = Makie.UnitfulConversion(u"s"),
-        dim2_conversion = Makie.UnitfulConversion(u"m"),
-    )
-    lines!(ax, times, pos)
-    fig
-end
-```
+!!! details "Plotting code"
 
-```julia
-#| id: just-a-spring-main
-function main()
-    input = Spring.Input(
-        time_step = 0.01u"s",
-        time_end = 5.0u"s",
-        spring_constant = 50.0u"N/m",
-        initial_position = 1.0u"m",
-        weight = 1.0u"kg",
-    )
+    ```julia
+    #| id: spring-plot
+    function plot_result(model, input, output)
+        times = [f.time for f in output]
+        pos = [f.position for f in output]
 
-    output = run(Spring, input) |> collect
-    fig = plot_result(output)
-    save("docs/src/fig/just-a-spring.svg", fig)
-end
-```
+        fig = Figure()
+        ax1 = Axis(fig[1:2, 1];
+            ylabel = "position",
+            dim1_conversion = Makie.UnitfulConversion(u"s"),
+            dim2_conversion = Makie.UnitfulConversion(u"m"),
+        )
+        lines!(ax1, times, pos)
+        ax2 = Axis(fig[3, 1];
+            ylabel = "energy",
+            dim1_conversion = Makie.UnitfulConversion(u"s"),
+            dim2_conversion = Makie.UnitfulConversion(u"J"),
+        )
+        lines!(ax2, times, [model.energy(input, s) for s in output])
+        fig
+    end
+    ```
+
+    ```julia
+    #| file: examples/just_a_spring.jl
+    #| classes: ["task"]
+    #| creates:
+    #|   - docs/src/fig/just-a-spring.svg
+    #| collect: figures
+    module Spring
+        <<just-a-spring>>
+    end
+
+    <<spring-model>>
+
+    module Script
+        using Unitful
+        using CairoMakie
+        using ..Spring
+        using ..Model: run
+
+        <<spring-plot>>
+
+        function main()
+            input = Spring.Input(
+                time_step = 0.01u"s",
+                time_end = 5.0u"s",
+                spring_constant = 50.0u"N/m",
+                initial_position = 1.0u"m",
+                mass = 1.0u"kg",
+            )
+
+            output = run(Spring, input) |> collect
+            fig = plot_result(Spring, input, output)
+            save("docs/src/fig/just-a-spring.svg", fig)
+        end
+    end
+
+    Script.main()
+    ```
+
+!!! info "Simulation of a spring"
+
+    ![Output of our spring simulation](fig/just-a-spring.svg)
+
+    Our simulation is running, but there appears to be something wrong here! Why is the amplitude of the oscillation increasing? Remember, we set the initial velocity to 0. After one step of forward Euler integration we have a velocity $|v| > 0$, but the position is still the same, so the system gets a boost. The integration method is not energy conserving.
+
+Now that we're familiar with the problem, let's try to deconstruct this program into multiple components.
 
 ### With Mixins
 
@@ -239,117 +291,103 @@ Now, we implement the same model using `ModuleMixins.jl`.
 
 ```julia
 #| file: examples/mixin_a_spring.jl
+#| classes: ["task"]
+#| creates:
+#|   - docs/src/fig/mixin-a-spring.svg
+#| collect: figures
 using ModuleMixins: @compose
 
-module Common
-    <<spring-common>>
-end
+<<spring-model>>
+<<mixin-a-spring>>
+```
 
+We define some common types:
+
+```julia
+#| id: mixin-a-spring
+module Common
+    export AbstractInput, AbstractState
+
+    abstract type AbstractInput end
+    abstract type AbstractState end
+end
+```
+
+We split our concerns into a `Time` module and a `Spring` module. Both these modules define an `Input` and `State` struct as well as the `init` and `step!` functions.
+
+```julia
+#| id: mixin-a-spring
 @compose module Time
     using Unitful
     using ..Common
 
-    <<spring-time>>
-end
+    @kwdef struct Input <: AbstractInput
+        time_step::typeof(1.0u"s")
+        time_end::typeof(1.0u"s")
+    end
 
+    @kwdef mutable struct State <: AbstractState
+        time::typeof(1.0u"s")
+    end
+
+    function init(input::AbstractInput)
+        State(time = 0.0u"s")
+    end
+
+    function step!(input::AbstractInput, state::AbstractState; fraction::Float64 = 1.0)
+        state.time += fraction * input.time_step
+    end
+end
+```
+
+Although the `Time` model doesn't compute anything interesting, we could call `Model.run(Time, Time.Input(0.1u"s", 1.0u"s"))`, and collect a series of time coordinates. There is something satisfying about being able to build out complexity from humble beginnings.
+In the `Spring` module, we extend the `Input` and `State` definitions present in `Time` and recreate the oscillator model we had before.
+
+```julia
+#| id: mixin-a-spring
 @compose module Spring
     @mixin Time
     using Unitful
     using ..Common
 
-    <<spring-spring>>
-end
-
-<<mixin-leap-frog>>
-
-module Script
-    using Unitful
-    using CairoMakie
-    using ModuleMixins
-
-    using ..Time
-    using ..Spring
-    using ..Common
-    using ..LeapFrog
-
-    <<spring-run-model>>
-    <<spring-plot-result>>
-    <<mixin-spring-main>>
-end
-
-Script.main()
-```
-
-We start with some common super types. These are not strictly needed, but make our code a bit more readable.
-
-```julia
-#| id: spring-common
-export AbstractInput, AbstractState
-
-abstract type AbstractInput end
-abstract type AbstractState end
-```
-
-```julia
-#| id: spring-time
-@kwdef struct Input <: AbstractInput
-    time_step::typeof(1.0u"s")
-    time_end::typeof(1.0u"s")
-end
-
-@kwdef mutable struct State <: AbstractState
-    time::typeof(1.0u"s")
-end
-
-function init(input::AbstractInput)
-    State(time = 0.0u"s")
-end
-
-function step!(input::AbstractInput, state::AbstractState; fraction::Float64 = 1.0)
-    state.time += fraction * input.time_step
-end
-```
-
-```julia
-#| id: spring-spring
-@kwdef struct Input <: AbstractInput
-    initial_position::typeof(1.0u"m")
-    spring_constant::typeof(1.0u"N/m")
-    weight::typeof(1.0u"kg")
-end
-
-@kwdef mutable struct State <: AbstractState
-    position::typeof(1.0u"m")
-    velocity::typeof(1.0u"m/s")
-end
-
-accelleration(input::AbstractInput, state::AbstractState) =
-    -state.position * input.spring_constant / input.weight
-
-step!(input::AbstractInput, state::AbstractState) =
-    let a = accelleration(input, state)
-        state.position += state.velocity * input.time_step
-        state.velocity += a * input.time_step
-        Time.step!(input, state)
+    @kwdef struct Input <: AbstractInput
+        initial_position::typeof(1.0u"m")
+        spring_constant::typeof(1.0u"N/m")
+        mass::typeof(1.0u"kg")
     end
 
-init(input::AbstractInput) =
-    State(time = 0.0u"s", position = input.initial_position, velocity = 0.0u"m/s")
+    @kwdef mutable struct State <: AbstractState
+        position::typeof(1.0u"m")
+        velocity::typeof(1.0u"m/s")
+    end
+
+    accelleration(input::AbstractInput, state::AbstractState) =
+        -state.position * input.spring_constant / input.mass
+
+    energy(input::AbstractInput, state::AbstractState) =
+        let k = state.velocity^2 * input.mass / 2,
+            v = state.position^2 * input.spring_constant / 2
+            k + v
+        end
+
+    step!(input::AbstractInput, state::AbstractState) =
+        let a = accelleration(input, state)
+            state.position += state.velocity * input.time_step
+            state.velocity += a * input.time_step
+            Time.step!(input, state)
+        end
+
+    init(input::AbstractInput) =
+        State(time = 0.0u"s", position = input.initial_position, velocity = 0.0u"m/s")
+end
 ```
 
 ### Using a better integrator
 
-```julia
-#| id: spring-spring
-kick!(input::AbstractInput, state::AbstractState) =
-    state.velocity += accelleration(input, state) * input.time_step
-
-drift!(input::AbstractInput, state::AbstractState) =
-    state.position += state.velocity * input.time_step
-```
+In the first part we saw that there were some shortcomings to the `step!` method, in that energy was not conserved. The integration method we used is also known as the **forward Euler** method. There is a better way integrate systems for which energy is conserved, known as the **leap-frog** method. The idea is to compute the change in velocity and the change in position at times offset by half a time step. These partial step methods are known as `kick!` (changing the velocity) and `drift!` (changing the position).
 
 ```julia
-#| id: mixin-leap-frog
+#| id: mixin-a-spring
 module LeapFrog
     using ..Common
     using ..Time
@@ -365,36 +403,133 @@ module LeapFrog
 end
 ```
 
+Now, let's see if we can extend our previous implementation of `Spring` to work with the new integrator.
+
 ```julia
-#| id: mixin-spring-main
+#| id: mixin-a-spring
 @compose module LeapFrogSpring
     @mixin Spring
+    using ..Spring: energy, init, accelleration
     using ..LeapFrog: leap_frog
 
     Base.convert(::Type{State}, s::Spring.State) =
-        State(time = s.time, velocity = s.velocity, position = s.position)
+		State(time=s.time, position=s.position, velocity=s.velocity)
 
-    const init = Spring.init
-    const step! = leap_frog(Spring)
+    kick!(input::AbstractInput, state::AbstractState) =
+        state.velocity += accelleration(input, state) * input.time_step
+
+    drift!(input::AbstractInput, state::AbstractState) =
+        state.position += state.velocity * input.time_step
+
+    const step! = leap_frog(LeapFrogSpring)
 end
 ```
 
-```julia
-#| id: mixin-spring-main
-function main()
-    input = Spring.Input(
-        time_step = 0.01u"s",
-        time_end = 5.0u"s",
-        spring_constant = 50.0u"N/m",
-        initial_position = 1.0u"m",
-        weight = 1.0u"kg",
-    )
+!!! note "Why the `convert` function?"
 
-    output = run(LeapFrogSpring, input) |> collect
-    fig = plot_result(output)
-    save("docs/src/fig/mixin-a-spring.svg", fig)
+    Note that the `Spring.init` function will return a value `Spring.State`. However, the `Model.run` function expects a `LeapFrogSpring.State` instead. I may patch `ModuleMixins` to create a type alias and not define a new identical type when nothing changes. For the moment, a `convert` function fixes the situation.
+
+!!! note "What did we use here?"
+
+    Also note that we didn't do anything strange here. The only thing we used from `ModuleMixins` is the composition and inheritance of `struct` definitions. The rest is just using standard Julia modules creatively. Not only did we see inheritance in action, the `LeapFrog` module could be seen as a transformer, taking one interface (having `kick!` and `drift!`), and turning it into another one (generating a `step!`).
+
+!!! info "Result from the Leap-frog integrator"
+
+    ![Result from the Leap-frog integration](fig/mixin-a-spring.svg)
+
+!!! details "Plotting code"
+
+    ```julia
+    #| id: mixin-a-spring
+    module Script
+        using Unitful
+        using CairoMakie
+        using ModuleMixins
+
+        using ..Time
+        using ..Spring
+        using ..Common
+        using ..Model: run
+        using ..LeapFrogSpring
+
+        <<spring-plot>>
+
+        function main()
+            input = LeapFrogSpring.Input(
+                time_step = 0.01u"s",
+                time_end = 5.0u"s",
+                spring_constant = 50.0u"N/m",
+                initial_position = 1.0u"m",
+                mass = 1.0u"kg",
+            )
+
+            output = run(LeapFrogSpring, input) |> collect
+            fig = plot_result(LeapFrogSpring, input, output)
+            save("docs/src/fig/mixin-a-spring.svg", fig)
+        end
+    end
+
+    Script.main()
+    ```
+
+## Diamond dependencies
+
+We've seen how we can use `ModuleMixins` to compose models from smaller components. The `Time` component could be reused for a different model, and we could use what we had (a forward Euler method) and extend it (to Leap-frog method), giving us both **reusability** and **extensibility**. Consider that more complicated models will have many such components, making the advantage of using `ModuleMixins` more visible.
+
+There is a case where using a construct similar to `ModuleMixins` becomes inevitable: the diamond dependency pattern.
+
+```@example 1
+using ModuleMixins: @compose
+
+@compose module A
+    struct S a::Int end
 end
+
+@compose module B
+    @mixin A
+    struct S b::Int end
+end
+
+@compose module C
+    @mixin A
+    struct S c::Int end
+end
+
+@compose module D
+    @mixin B, C
+    struct S d::Int end
+end
+
+fieldnames(D.S)
 ```
+
+We may draw a dependency diagram for this example:
+
+```mermaid
+graph TD
+    A("A: a")
+    B("B: a b")
+    C("C: a c")
+    D("D: a b c d")
+
+    A --> B --> D
+    A --> C --> D
+```
+
+If we had used composition to create these dependencies, we would have arrived at a different conclusion:
+
+```mermaid
+graph TD
+    A("A: a")
+    B("B: (a) b")
+    C("C: (a) c")
+    D("D: ((a) b) ((a) c) d")
+
+    A --> B --> D
+    A --> C --> D
+```
+
+We end up with **two** copies of `A`. We could implement this so that `D.b.a` and `D.c.a` point to the same object, but doing so increases the amount of indirection and complexity in our code needlessly.
 
 ## Resources
 

@@ -1,3 +1,35 @@
 {
-    "task": []
+  "task": [
+    {
+      "description": null,
+      "creates": [
+        "docs/src/fig/just-a-spring.svg"
+      ],
+      "requires": [],
+      "runner": "julia",
+      "stdout": null,
+      "stdin": null,
+      "script": null,
+      "path": "examples/just_a_spring.jl"
+    },
+    {
+      "description": null,
+      "creates": [
+        "docs/src/fig/mixin-a-spring.svg"
+      ],
+      "requires": [],
+      "runner": "julia",
+      "stdout": null,
+      "stdin": null,
+      "script": null,
+      "path": "examples/mixin_a_spring.jl"
+    },
+    {
+      "name": "figures",
+      "requires": [
+        "docs/src/fig/just-a-spring.svg",
+        "docs/src/fig/mixin-a-spring.svg"
+      ]
+    }
+  ]
 }

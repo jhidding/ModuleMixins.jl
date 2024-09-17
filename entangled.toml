@@ -12,3 +12,9 @@ close="^(?P<indent>\\s*)```\\s*$"
 name="JuliaREPL"
 identifiers=["julia-repl"]
 comment={open="#"}
+
+[[languages]]
+name="Mermaid"
+identifiers=["mermaid"]
+comment={open="#"}
+
