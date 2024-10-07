@@ -7,3 +7,5 @@ docs/build/
 node_modules
 .entangled/filedb.lock
 .vscode
+notebooks
+

@@ -10,7 +10,8 @@ using ModuleMixins:
     parse_struct,
     define_struct,
     Pass,
-    @compose
+    @compose,
+    @for_each
 using MacroTools: prewalk, rmlines
 
 clean(expr) = prewalk(rmlines, expr)
@@ -79,6 +80,50 @@ end
 end
 end
 # ~/~ end
+# ~/~ begin <<docs/src/50-implementation.md#test-toplevel>>[5]
+#| id: test-toplevel
+module Common
+    export AbstractData
+    abstract type AbstractData end
+end
+
+@compose module WriterA
+    using ..Common
+
+    @kwdef struct Data <: AbstractData
+        a::Int
+    end
+
+    function write(io::IO, data::AbstractData)
+        println(io, data.a)
+    end
+end
+
+@compose module WriterB
+    using ..Common
+    @mixin WriterA
+
+    @kwdef struct Data <: AbstractData
+        b::Int
+    end
+
+    function write(io::IO, data::AbstractData)
+        println(io, data.b)
+    end
+end
+
+@compose module WriterC
+end
+
+@compose module WriterABC
+    using ModuleMixins
+    @mixin WriterB, WriterC
+
+    function write(io::IO, data::AbstractData)
+        @for_each(P->P.write(io, data), PARENTS)
+    end
+end
+# ~/~ end
 
 @testset "ModuleMixins" begin
     # ~/~ begin <<docs/src/50-implementation.md#test>>[init]
@@ -140,6 +185,15 @@ end
     @testset "compose struct members" begin
         @test ComposeTest1.AB.PARENTS == [:A, :B]
         @test fieldnames(ComposeTest1.AB.S) == (:a, :b)
+    end
+    # ~/~ end
+    # ~/~ begin <<docs/src/50-implementation.md#test>>[7]
+    #| id: test
+    @testset "for-each" begin
+        io = IOBuffer(write=true)
+        data = WriterABC.Data(a = 42, b = 23)
+        WriterABC.write(io, data)
+        @test String(take!(io)) == "23\n42\n"
     end
     # ~/~ end
 end

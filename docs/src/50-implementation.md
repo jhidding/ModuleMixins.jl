@@ -10,12 +10,13 @@ module ModuleMixins
 
 using MacroTools: @capture, postwalk, prewalk
 
-export @compose
+export @compose, @for_each
 
 <<spec>>
 <<mixin>>
 <<struct-data>>
 <<compose>>
+<<for-each>>
 
 end
 ```
@@ -34,7 +35,8 @@ using ModuleMixins:
     parse_struct,
     define_struct,
     Pass,
-    @compose
+    @compose,
+    @for_each
 using MacroTools: prewalk, rmlines
 
 clean(expr) = prewalk(rmlines, expr)
@@ -456,12 +458,106 @@ macro compose(mod)
     clean_body = mixin(body)
 
     esc(Expr(:toplevel, :(module $name
+        const AST = $body
+        const PARENTS = [$(QuoteNode.(mixins)...)]
         $(usings.items...)
         $(consts.items...)
         $(define_struct.(values(structs.items))...)
         $(clean_body...)
-        const AST = $body
-        const PARENTS = [$(QuoteNode.(mixins)...)]
     end)))
+end
+```
+
+## For-each
+
+The `@for_each` macro is meant for situations where you want to call a certain member function for each module that has it defined. Our use case: we have several components that need to write different bits of information to an output file. Each component defines a `write(io, data)` method. In our composed model, we can now call:
+
+```julia
+@for_each(P->P.write(io, data), PARENTS)
+```
+
+```julia
+#| id: test-toplevel
+module Common
+    export AbstractData
+    abstract type AbstractData end
+end
+
+@compose module WriterA
+    using ..Common
+
+    @kwdef struct Data <: AbstractData
+        a::Int
+    end
+
+    function write(io::IO, data::AbstractData)
+        println(io, data.a)
+    end
+end
+
+@compose module WriterB
+    using ..Common
+    @mixin WriterA
+
+    @kwdef struct Data <: AbstractData
+        b::Int
+    end
+
+    function write(io::IO, data::AbstractData)
+        println(io, data.b)
+    end
+end
+
+@compose module WriterC
+end
+
+@compose module WriterABC
+    using ModuleMixins
+    @mixin WriterB, WriterC
+
+    function write(io::IO, data::AbstractData)
+        @for_each(P->P.write(io, data), PARENTS)
+    end
+end
+```
+
+```julia
+#| id: test
+@testset "for-each" begin
+    io = IOBuffer(write=true)
+    data = WriterABC.Data(a = 42, b = 23)
+    WriterABC.write(io, data)
+    @test String(take!(io)) == "23\n42\n"
+end
+```
+
+```julia
+#| id: for-each
+function substitute_top_level(var, val, mod, expr)
+    postwalk(function (x)
+        @capture(x, gen_.item_) || return x
+        if gen === var
+            if item in names(mod, all=true)
+                return Expr(:., val, QuoteNode(item))
+            else
+                return Returns(nothing)
+            end
+        end
+        return x
+    end, expr)
+end
+
+macro for_each(_fun, _lst)
+    @assert @capture(_fun, var_ -> expr_)
+
+    function replace_call_parent(p)
+        mod = Core.eval(__module__, p)
+        substitute_top_level(var, p, mod, expr)
+    end
+
+    lst = Core.eval(__module__, _lst)
+    esc(:(begin
+        $((replace_call_parent(p) for p in lst)...)
+    end))
 end
 ```

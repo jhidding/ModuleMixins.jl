@@ -4,7 +4,7 @@ module ModuleMixins
 
 using MacroTools: @capture, postwalk, prewalk
 
-export @compose
+export @compose, @for_each
 
 # ~/~ begin <<docs/src/50-implementation.md#spec>>[init]
 #| id: spec
@@ -241,13 +241,43 @@ macro compose(mod)
     clean_body = mixin(body)
 
     esc(Expr(:toplevel, :(module $name
+        const AST = $body
+        const PARENTS = [$(QuoteNode.(mixins)...)]
         $(usings.items...)
         $(consts.items...)
         $(define_struct.(values(structs.items))...)
         $(clean_body...)
-        const AST = $body
-        const PARENTS = [$(QuoteNode.(mixins)...)]
     end)))
+end
+# ~/~ end
+# ~/~ begin <<docs/src/50-implementation.md#for-each>>[init]
+#| id: for-each
+function substitute_top_level(var, val, mod, expr)
+    postwalk(function (x)
+        @capture(x, gen_.item_) || return x
+        if gen === var
+            if item in names(mod, all=true)
+                return Expr(:., val, QuoteNode(item))
+            else
+                return Returns(nothing)
+            end
+        end
+        return x
+    end, expr)
+end
+
+macro for_each(_fun, _lst)
+    @assert @capture(_fun, var_ -> expr_)
+
+    function replace_call_parent(p)
+        mod = Core.eval(__module__, p)
+        substitute_top_level(var, p, mod, expr)
+    end
+
+    lst = Core.eval(__module__, _lst)
+    esc(:(begin
+        $((replace_call_parent(p) for p in lst)...)
+    end))
 end
 # ~/~ end
 
