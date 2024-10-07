@@ -32,11 +32,11 @@
       "size": 23827
     },
     {
-      "deps": null,
-      "hexdigest": "29e89b8757adde892bba76b3a5788947807a707981daaebc8671d619df9b3341",
-      "modified": "2024-07-29T01:23:39.160237",
+      "deps": [],
+      "hexdigest": "e7491f6557d701ac7e6eb247011a4de27cad87059396d8626e77e3d9faba68d0",
+      "modified": "2024-10-07T16:16:12.479683",
       "path": "docs/src/50-implementation.md",
-      "size": 10455
+      "size": 10494
     },
     {
       "deps": null,
@@ -106,19 +106,19 @@
       "deps": [
         "docs/src/50-implementation.md"
       ],
-      "hexdigest": "75d5bd5b58d19195f67cc3eb9dc08faaaccaac7d21e2c6728be290139b08aea5",
-      "modified": "2024-07-29T01:23:39.160237",
+      "hexdigest": "2a97cf26e59198b1c26ecde6e5f132f1ea4575041a4d736ace46aff9d82ebc2f",
+      "modified": "2024-10-07T16:13:55.394272",
       "path": "src/ModuleMixins.jl",
-      "size": 5981
+      "size": 5974
     },
     {
       "deps": [
         "docs/src/50-implementation.md"
       ],
-      "hexdigest": "b61702a7c994336bb2b6891d54e9f9307e2cd2f0ffec5b59585e638c0fd26796",
-      "modified": "2024-07-29T00:29:55.385132",
+      "hexdigest": "d7b989523880a29c3aa6c6bbab023ccbdf5d396f8394602b4d7213c2e64f8944",
+      "modified": "2024-10-07T16:15:51.318244",
       "path": "test/runtests.jl",
-      "size": 3606
+      "size": 3656
     }
   ],
   "source": [],

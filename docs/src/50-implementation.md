@@ -380,6 +380,7 @@ end
 ```julia
 #| id: test
 @testset "compose struct members" begin
+    @test ComposeTest1.AB.PARENTS == [:A, :B]
     @test fieldnames(ComposeTest1.AB.S) == (:a, :b)
 end
 ```
@@ -460,7 +461,7 @@ macro compose(mod)
         $(define_struct.(values(structs.items))...)
         $(clean_body...)
         const AST = $body
-        const PARENTS = [$(QuoteNode.(parents.items)...)]
+        const PARENTS = [$(QuoteNode.(mixins)...)]
     end)))
 end
 ```

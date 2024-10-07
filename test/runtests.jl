@@ -138,6 +138,7 @@ end
     # ~/~ begin <<docs/src/50-implementation.md#test>>[6]
     #| id: test
     @testset "compose struct members" begin
+        @test ComposeTest1.AB.PARENTS == [:A, :B]
         @test fieldnames(ComposeTest1.AB.S) == (:a, :b)
     end
     # ~/~ end

@@ -246,7 +246,7 @@ macro compose(mod)
         $(define_struct.(values(structs.items))...)
         $(clean_body...)
         const AST = $body
-        const PARENTS = [$(QuoteNode.(parents.items)...)]
+        const PARENTS = [$(QuoteNode.(mixins)...)]
     end)))
 end
 # ~/~ end
