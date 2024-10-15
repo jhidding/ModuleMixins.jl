@@ -6,20 +6,6 @@
 #| collect: figures
 using ModuleMixins: @compose
 
-# ~/~ begin <<docs/src/30-blog.md#spring-model>>[init]
-#| id: spring-model
-module Model
-    function run(model::Module, input)
-        state = model.init(input)
-        Channel{model.State}() do ch
-            while state.time < input.time_end
-                model.step!(input, state)
-                put!(ch, deepcopy(state))
-            end
-        end
-    end
-end
-# ~/~ end
 # ~/~ begin <<docs/src/30-blog.md#mixin-a-spring>>[init]
 #| id: mixin-a-spring
 module Common
@@ -28,9 +14,11 @@ module Common
     abstract type AbstractInput end
     abstract type AbstractState end
 
+    # ~/~ begin <<docs/src/30-blog.md#spring-run-fast>>[init]
+    #| id: spring-run-fast
     struct Model{T} end
 
-    function run(model::Type{Model{M}}, input) where M
+    function run(::Type{Model{M}}, input) where M
         state = M.init(input)
         Channel{M.State}() do ch
             while state.time < input.time_end
@@ -39,6 +27,7 @@ module Common
             end
         end
     end
+    # ~/~ end
 end
 # ~/~ end
 # ~/~ begin <<docs/src/30-blog.md#mixin-a-spring>>[1]
@@ -109,25 +98,14 @@ module LeapFrog
     using ..Common
     using ..Time
 
-    function leap_frog(model::Module)
+    function leap_frog(::Type{Model{M}}) where M
         function (input::AbstractInput, state::AbstractState)
-            model.kick!(input, state)
+            M.kick!(input, state)
             Time.step!(input, state; fraction = 0.5)
-            model.drift!(input, state)
+            M.drift!(input, state)
             Time.step!(input, state; fraction = 0.5)
         end
     end
-
-    function leap_frog_trait(::Type{Model{T}}) where T
-        function (input::AbstractInput, state::AbstractState)
-            T.kick!(input, state)
-            Time.step!(input, state; fraction = 0.5)
-            T.drift!(input, state)
-            Time.step!(input, state; fraction = 0.5)
-        end
-    end
-
-    leap_frog_front(model::Module) = leap_frog_trait(Model{model})
 end
 # ~/~ end
 # ~/~ begin <<docs/src/30-blog.md#mixin-a-spring>>[4]
@@ -139,20 +117,21 @@ end
     using ..LeapFrog
 
     Base.convert(::Type{State}, s::Spring.State) =
-		State(time=s.time, position=s.position, velocity=s.velocity)
+        State(time=s.time, position=s.position, velocity=s.velocity)
 
     kick!(input::AbstractInput, state::AbstractState) =
         state.velocity += accelleration(input, state) * input.time_step
 
-    drift!(input::AbstractInput, state::AbstractState) =
-        state.position += state.velocity * input.time_step
+    drift!(input::AbstractInput, state::AbstractState; fraction::Float64=1.0) =
+        state.position += state.velocity * input.time_step * fraction
 
-    const step! = LeapFrog.leap_frog_front(LeapFrogSpring)
-    const step_trait! = LeapFrog.leap_frog_trait(Model{LeapFrogSpring})
+    const step! = LeapFrog.leap_frog(Model{LeapFrogSpring})
 end
 # ~/~ end
 # ~/~ begin <<docs/src/30-blog.md#mixin-a-spring>>[5]
 #| id: mixin-a-spring
+# ~/~ end
+
 module Script
     using Unitful
     using CairoMakie
@@ -165,7 +144,7 @@ module Script
 
     # ~/~ begin <<docs/src/30-blog.md#spring-plot>>[init]
     #| id: spring-plot
-    function plot_result(model, input, output)
+    function plot_result(input, output, energy)
         times = [f.time for f in output]
         pos = [f.position for f in output]
 
@@ -181,7 +160,7 @@ module Script
             dim1_conversion = Makie.UnitfulConversion(u"s"),
             dim2_conversion = Makie.UnitfulConversion(u"J"),
         )
-        lines!(ax2, times, [model.energy(input, s) for s in output])
+        lines!(ax2, times, energy)
         fig
     end
     # ~/~ end
@@ -195,12 +174,16 @@ module Script
             mass = 1.0u"kg",
         )
 
-        output = run(LeapFrogSpring, input) |> collect
-        fig = plot_result(LeapFrogSpring, input, output)
+        output = Common.run(Model{LeapFrogSpring}, input) |> collect
+        energy = map(output) do s
+            # correction for overshooting
+            LeapFrogSpring.drift!(input, s; fraction=-0.5)
+            LeapFrogSpring.energy(input, s)
+        end
+        fig = plot_result(input, output, energy)
         save("docs/src/fig/mixin-a-spring.svg", fig)
     end
 end
-# ~/~ end
 
 Script.main()
 # ~/~ end

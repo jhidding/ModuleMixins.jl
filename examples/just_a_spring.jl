@@ -52,30 +52,28 @@ module Spring
     # ~/~ end
 end
 
-# ~/~ begin <<docs/src/30-blog.md#spring-model>>[init]
-#| id: spring-model
-module Model
-    function run(model::Module, input)
-        state = model.init(input)
-        Channel{model.State}() do ch
-            while state.time < input.time_end
-                model.step!(input, state)
-                put!(ch, deepcopy(state))
-            end
-        end
-    end
-end
-# ~/~ end
-
 module Script
     using Unitful
     using CairoMakie
     using ..Spring
-    using ..Model: run
 
+    # ~/~ begin <<docs/src/30-blog.md#spring-run-fast>>[init]
+    #| id: spring-run-fast
+    struct Model{T} end
+
+    function run(::Type{Model{M}}, input) where M
+        state = M.init(input)
+        Channel{M.State}() do ch
+            while state.time < input.time_end
+                M.step!(input, state)
+                put!(ch, deepcopy(state))
+            end
+        end
+    end
+    # ~/~ end
     # ~/~ begin <<docs/src/30-blog.md#spring-plot>>[init]
     #| id: spring-plot
-    function plot_result(model, input, output)
+    function plot_result(input, output, energy)
         times = [f.time for f in output]
         pos = [f.position for f in output]
 
@@ -91,7 +89,7 @@ module Script
             dim1_conversion = Makie.UnitfulConversion(u"s"),
             dim2_conversion = Makie.UnitfulConversion(u"J"),
         )
-        lines!(ax2, times, [model.energy(input, s) for s in output])
+        lines!(ax2, times, energy)
         fig
     end
     # ~/~ end
@@ -105,8 +103,9 @@ module Script
             mass = 1.0u"kg",
         )
 
-        output = run(Spring, input) |> collect
-        fig = plot_result(Spring, input, output)
+        output = run(Model{Spring}, input) |> collect
+        energy = [Spring.energy(input, s) for s in output]
+        fig = plot_result(input, output, energy)
         save("docs/src/fig/just-a-spring.svg", fig)
     end
 end

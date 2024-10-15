@@ -8,4 +8,5 @@ node_modules
 .entangled/filedb.lock
 .vscode
 notebooks
-
+.entangled/filedb.json
+git 
