@@ -186,6 +186,14 @@ end
         @test ComposeTest1.AB.PARENTS == [:A, :B]
         @test fieldnames(ComposeTest1.AB.S) == (:a, :b)
     end
+    @testset "compose hierarchy" begin
+        @test ComposeTest1.AB.MIXIN_TREE == IdDict(:AB => [:A, :B], :A => [], :B => [])
+        @test WriterABC.MIXIN_TREE == IdDict(
+            :WriterABC => [:WriterB, :WriterC],
+            :WriterC => [],
+            :WriterB => [:WriterA],
+            :WriterA => [])
+    end
     # ~/~ end
     # ~/~ begin <<docs/src/50-implementation.md#test>>[7]
     #| id: test

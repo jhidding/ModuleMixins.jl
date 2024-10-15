@@ -221,19 +221,21 @@ macro compose(mod)
     @assert @capture(mod, module name_ body__ end)
 
     mixins = Symbol[]
+    mixin_tree = IdDict{Symbol, Vector{Symbol}}()
     parents = MixinPass([])
     usings = CollectUsingPass([])
     consts = CollectConstPass([])
     structs = CollectStructPass(IdDict())
 
-    function mixin(expr)
+    function mixin(expr; name=name)
         parents = MixinPass([])
         pass1 = walk(parents, expr)
+        mixin_tree[name] = parents.items
         for p in parents.items
             p in mixins && continue
             push!(mixins, p)
             parent_expr = Core.eval(__module__, :($(p).AST))
-            mixin(parent_expr)
+            mixin(parent_expr; name=p)
         end
         walk(usings + consts + structs, pass1)
     end
@@ -243,6 +245,7 @@ macro compose(mod)
     esc(Expr(:toplevel, :(module $name
         const AST = $body
         const PARENTS = [$(QuoteNode.(mixins)...)]
+        const MIXIN_TREE = $(mixin_tree)
         $(usings.items...)
         $(consts.items...)
         $(define_struct.(values(structs.items))...)
