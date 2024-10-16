@@ -544,6 +544,14 @@ end
 
 ```julia
 #| id: for-each
+"""
+    substitute_top_level(var, val, mod, expr)
+
+Takes a syntax object `expr` and substitutes every occurence of 
+module `var` for `val`, only if the resulting object is actually
+present in module `mod`. The `mod` module should correspond with
+a lookup of `val` in the caller's namespace.
+"""
 function substitute_top_level(var, val, mod, expr)
     postwalk(function (x)
         @capture(x, gen_.item_) || return x
@@ -558,6 +566,13 @@ function substitute_top_level(var, val, mod, expr)
     end, expr)
 end
 
+"""
+    @for_each(M -> M.method(), lst::Vector{Symbol})
+
+Calls `method()` for each module in `lst` that actually implements
+that method. Here `lst` should be a vector of symbols that are all
+in the current module's namespace.
+"""
 macro for_each(_fun, _lst)
     @assert @capture(_fun, var_ -> expr_)
 
