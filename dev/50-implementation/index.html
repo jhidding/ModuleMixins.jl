@@ -404,6 +404,14 @@ end</code></pre><pre><code class="language-julia hljs">#| id: test
     WriterABC.write(io, data)
     @test String(take!(io)) == &quot;23\n42\n&quot;
 end</code></pre><pre><code class="language-julia hljs">#| id: for-each
+&quot;&quot;&quot;
+    substitute_top_level(var, val, mod, expr)
+
+Takes a syntax object `expr` and substitutes every occurence of 
+module `var` for `val`, only if the resulting object is actually
+present in module `mod`. The `mod` module should correspond with
+a lookup of `val` in the caller&#39;s namespace.
+&quot;&quot;&quot;
 function substitute_top_level(var, val, mod, expr)
     postwalk(function (x)
         @capture(x, gen_.item_) || return x
@@ -418,6 +426,13 @@ function substitute_top_level(var, val, mod, expr)
     end, expr)
 end
 
+&quot;&quot;&quot;
+    @for_each(M -&gt; M.method(), lst::Vector{Symbol})
+
+Calls `method()` for each module in `lst` that actually implements
+that method. Here `lst` should be a vector of symbols that are all
+in the current module&#39;s namespace.
+&quot;&quot;&quot;
 macro for_each(_fun, _lst)
     @assert @capture(_fun, var_ -&gt; expr_)
 
@@ -435,4 +450,4 @@ mermaid.initialize({
     startOnLoad: true,
     theme: "neutral"
 });
-</script></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../30-blog/">« Objects, Inheritance and Modules in Julia</a><a class="docs-footer-nextpage" href="../90-contributing/">Contributing guidelines »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.7.0 on <span class="colophon-date" title="Tuesday 15 October 2024 20:56">Tuesday 15 October 2024</span>. Using Julia version 1.10.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+</script></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../30-blog/">« Objects, Inheritance and Modules in Julia</a><a class="docs-footer-nextpage" href="../90-contributing/">Contributing guidelines »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.7.0 on <span class="colophon-date" title="Wednesday 16 October 2024 07:41">Wednesday 16 October 2024</span>. Using Julia version 1.10.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
