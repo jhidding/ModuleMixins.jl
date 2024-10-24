@@ -465,12 +465,16 @@ macro compose(mod)
         walk(usings + consts + structs, pass1)
     end
 
+    fields = CollectStructPass(IdDict())
+    walk(fields, body)
+
     clean_body = mixin(body)
 
     esc(Expr(:toplevel, :(module $name
         const AST = $body
         const PARENTS = [$(QuoteNode.(mixins)...)]
         const MIXIN_TREE = $(mixin_tree)
+        const FIELDS = $(IdDict((n => v.fields for (n, v) in pairs(fields.items))...))
         $(usings.items...)
         $(consts.items...)
         $(define_struct.(values(structs.items))...)
