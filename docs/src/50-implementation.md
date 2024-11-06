@@ -512,7 +512,7 @@ macro compose(mod)
         walk(usings + consts + structs, pass1)
     end
 
-    fields = CollectStructPass(IdDict())
+    fields = CollectStructPass(IdDict{Symbol,Struct}(), name)
     walk(fields, body)
 
     clean_body = mixin(body)
