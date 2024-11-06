@@ -282,10 +282,11 @@ We'll convert `struct` syntax into collectable data, then convert that back into
 ```julia
 #| id: test
 cases = Dict(
-    :(struct A x end) => Struct(false, false, :A, nothing, [:x]),
-    :(mutable struct A x end) => Struct(false, true, :A, nothing, [:x]),
-    :(@kwdef struct A x end) => Struct(true, false, :A, nothing, [:x]),
-    :(@kwdef mutable struct A x end) => Struct(true, true, :A, nothing, [:x]),
+    :(struct A x end) => Struct(false, false, :A, nothing, nothing, [:x]),
+    :(mutable struct A x end) => Struct(false, true, :A, nothing, nothing, [:x]),
+    :(@kwdef struct A x end) => Struct(true, false, :A, nothing, nothing, [:x]),
+    :(@kwdef mutable struct A x end) => Struct(true, true, :A, nothing, nothing, [:x]),
+    :(struct A{T} x::T end) => Struct(false, false, :A, [:T], nothing, [:(x::T)]),
 )
 
 for (k, v) in pairs(cases)
@@ -304,21 +305,58 @@ Each of these can have either just a `Symbol` for a name, or a `A <: B` expressi
     @test parse_struct(:(struct A <: B x end)).abstract_type == :B
     @test parse_struct(:(mutable struct A <: B x end)).abstract_type == :B
 end
+
+@testset "Mangling type arguments" begin
+    using ModuleMixins: mangle_type_parameters!
+    let s = parse_struct(:(struct S{T} x::T end))
+        @test s.type_parameters == [:T]
+        mangle_type_parameters!(s, :A)
+        @test s.type_parameters == [:_T_A]
+        @test clean(define_struct(s)) == clean(:(struct S{_T_A} x::_T_A end))
+    end
+    let s = parse_struct(:(struct S{T} x::Vector{T} = [] end))
+        mangle_type_parameters!(s, :A)
+        @test clean(define_struct(s)) == clean(:(struct S{_T_A} x::Vector{_T_A} = [] end))
+    end
+end
 ```
 
 ```julia
 #| id: struct-data
 
-struct Struct
+mutable struct Struct
     use_kwdef::Bool
     is_mutable::Bool
     name::Symbol
+    type_parameters::Union{Vector{Symbol},Nothing}
     abstract_type::Union{Symbol,Nothing}
     fields::Vector{Union{Expr,Symbol}}
 end
 
+function mangle_type_parameters!(s::Struct, suffix::Symbol)
+    s.type_parameters === nothing && return
+
+    d = IdDict{Symbol, Symbol}(
+        (k => Symbol("_$(k)_$(suffix)") for k in s.type_parameters)...)
+
+    replace_type_par(expr) =
+        postwalk(x -> x isa Symbol ? get(d, x, x) : x, expr)
+        
+    s.fields = replace_type_par.(s.fields)
+    s.type_parameters = collect(values(d))
+    return s
+end
+
+function mappend(a::Union{Vector{T}, Nothing}, b::Union{Vector{T}, Nothing}) where T
+    isnothing(a) && return b
+    isnothing(b) && return a
+    return vcat(a, b)
+end
+
 function extend_struct!(s1::Struct, s2::Struct)
     append!(s1.fields, s2.fields)
+    s1.type_parameters = mappend(s1.type_parameters, s2.type_parameters)
+    return s1
 end
 
 function parse_struct(expr)
@@ -332,13 +370,16 @@ function parse_struct(expr)
 
     is_mutable = mut_name !== nothing
     sname = is_mutable ? mut_name : name
-    @capture(sname, (name_ <: abst_) | name_)
+    @capture(sname, (pname_ <: abst_) | pname_)
+    @capture(pname, (name_{pars__}) | name_)
 
-    return Struct(uses_kwdef, is_mutable, name, abst, fields)
+
+    return Struct(uses_kwdef, is_mutable, name, pars, abst, fields)
 end
 
 function define_struct(s::Struct)
-    name = s.abstract_type !== nothing ? :($(s.name) <: $(s.abstract_type)) : s.name
+    name = s.type_parameters !== nothing ? :($(s.name){$(s.type_parameters...)}) : s.name
+    name = s.abstract_type !== nothing ? :($(name) <: $(s.abstract_type)) : name
     sdef = if s.is_mutable
         :(mutable struct $name
             $(s.fields...)
@@ -368,8 +409,8 @@ using ModuleMixins
 end
 
 @compose module B
-    struct S
-        b::Int
+    struct S{T}
+        b::T
     end
 end
 
@@ -392,6 +433,9 @@ end
         :WriterC => [],
         :WriterB => [:WriterA],
         :WriterA => [])
+end
+@testset "composed struct has type parameter" begin
+    @test ComposeTest1.AB.S{Float64}(1, 2).b isa Float64
 end
 ```
 
@@ -420,11 +464,13 @@ end
 
 struct CollectStructPass <: Pass
     items::IdDict{Symbol,Struct}
+    name::Symbol
 end
 
 function pass(p::CollectStructPass, expr)
     s = parse_struct(expr)
     s === nothing && return :nomatch
+    mangle_type_parameters!(s, p.name)
     if s.name in keys(p.items)
         extend_struct!(p.items[s.name], s)
     else
@@ -450,9 +496,10 @@ macro compose(mod)
     parents = MixinPass([])
     usings = CollectUsingPass([])
     consts = CollectConstPass([])
-    structs = CollectStructPass(IdDict())
+    struct_items = IdDict{Symbol, Struct}()
 
     function mixin(expr; name=name)
+        structs = CollectStructPass(struct_items, name)
         parents = MixinPass([])
         pass1 = walk(parents, expr)
         mixin_tree[name] = parents.items
@@ -477,7 +524,7 @@ macro compose(mod)
         const FIELDS = $(IdDict((n => v.fields for (n, v) in pairs(fields.items))...))
         $(usings.items...)
         $(consts.items...)
-        $(define_struct.(values(structs.items))...)
+        $(define_struct.(values(struct_items))...)
         $(clean_body...)
     end)))
 end

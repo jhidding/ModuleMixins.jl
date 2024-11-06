@@ -128,16 +128,39 @@ end
 # ~/~ begin <<docs/src/50-implementation.md#struct-data>>[init]
 #| id: struct-data
 
-struct Struct
+mutable struct Struct
     use_kwdef::Bool
     is_mutable::Bool
     name::Symbol
+    type_parameters::Union{Vector{Symbol},Nothing}
     abstract_type::Union{Symbol,Nothing}
     fields::Vector{Union{Expr,Symbol}}
 end
 
+function mangle_type_parameters!(s::Struct, suffix::Symbol)
+    s.type_parameters === nothing && return
+
+    d = IdDict{Symbol, Symbol}(
+        (k => Symbol("_$(k)_$(suffix)") for k in s.type_parameters)...)
+
+    replace_type_par(expr) =
+        postwalk(x -> x isa Symbol ? get(d, x, x) : x, expr)
+        
+    s.fields = replace_type_par.(s.fields)
+    s.type_parameters = collect(values(d))
+    return s
+end
+
+function mappend(a::Union{Vector{T}, Nothing}, b::Union{Vector{T}, Nothing}) where T
+    isnothing(a) && return b
+    isnothing(b) && return a
+    return vcat(a, b)
+end
+
 function extend_struct!(s1::Struct, s2::Struct)
     append!(s1.fields, s2.fields)
+    s1.type_parameters = mappend(s1.type_parameters, s2.type_parameters)
+    return s1
 end
 
 function parse_struct(expr)
@@ -151,13 +174,16 @@ function parse_struct(expr)
 
     is_mutable = mut_name !== nothing
     sname = is_mutable ? mut_name : name
-    @capture(sname, (name_ <: abst_) | name_)
+    @capture(sname, (pname_ <: abst_) | pname_)
+    @capture(pname, (name_{pars__}) | name_)
 
-    return Struct(uses_kwdef, is_mutable, name, abst, fields)
+
+    return Struct(uses_kwdef, is_mutable, name, pars, abst, fields)
 end
 
 function define_struct(s::Struct)
-    name = s.abstract_type !== nothing ? :($(s.name) <: $(s.abstract_type)) : s.name
+    name = s.type_parameters !== nothing ? :($(s.name){$(s.type_parameters...)}) : s.name
+    name = s.abstract_type !== nothing ? :($(name) <: $(s.abstract_type)) : name
     sdef = if s.is_mutable
         :(mutable struct $name
             $(s.fields...)
@@ -195,11 +221,13 @@ end
 
 struct CollectStructPass <: Pass
     items::IdDict{Symbol,Struct}
+    name::Symbol
 end
 
 function pass(p::CollectStructPass, expr)
     s = parse_struct(expr)
     s === nothing && return :nomatch
+    mangle_type_parameters!(s, p.name)
     if s.name in keys(p.items)
         extend_struct!(p.items[s.name], s)
     else
@@ -225,9 +253,10 @@ macro compose(mod)
     parents = MixinPass([])
     usings = CollectUsingPass([])
     consts = CollectConstPass([])
-    structs = CollectStructPass(IdDict())
+    struct_items = IdDict{Symbol, Struct}()
 
     function mixin(expr; name=name)
+        structs = CollectStructPass(struct_items, name)
         parents = MixinPass([])
         pass1 = walk(parents, expr)
         mixin_tree[name] = parents.items
@@ -252,7 +281,7 @@ macro compose(mod)
         const FIELDS = $(IdDict((n => v.fields for (n, v) in pairs(fields.items))...))
         $(usings.items...)
         $(consts.items...)
-        $(define_struct.(values(structs.items))...)
+        $(define_struct.(values(struct_items))...)
         $(clean_body...)
     end)))
 end
