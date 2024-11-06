@@ -188,10 +188,11 @@ macro spec_using(mod)
     end)))
 end</code></pre><h2 id="Structure-of-structs"><a class="docs-heading-anchor" href="#Structure-of-structs">Structure of structs</a><a id="Structure-of-structs-1"></a><a class="docs-heading-anchor-permalink" href="#Structure-of-structs" title="Permalink"></a></h2><p>We&#39;ll convert <code>struct</code> syntax into collectable data, then convert that back into structs again. We&#39;ll support several patterns:</p><pre><code class="language-julia hljs">#| id: test
 cases = Dict(
-    :(struct A x end) =&gt; Struct(false, false, :A, nothing, [:x]),
-    :(mutable struct A x end) =&gt; Struct(false, true, :A, nothing, [:x]),
-    :(@kwdef struct A x end) =&gt; Struct(true, false, :A, nothing, [:x]),
-    :(@kwdef mutable struct A x end) =&gt; Struct(true, true, :A, nothing, [:x]),
+    :(struct A x end) =&gt; Struct(false, false, :A, nothing, nothing, [:x]),
+    :(mutable struct A x end) =&gt; Struct(false, true, :A, nothing, nothing, [:x]),
+    :(@kwdef struct A x end) =&gt; Struct(true, false, :A, nothing, nothing, [:x]),
+    :(@kwdef mutable struct A x end) =&gt; Struct(true, true, :A, nothing, nothing, [:x]),
+    :(struct A{T} x::T end) =&gt; Struct(false, false, :A, [:T], nothing, [:(x::T)]),
 )
 
 for (k, v) in pairs(cases)
@@ -203,18 +204,55 @@ end</code></pre><p>Each of these can have either just a <code>Symbol</code> for 
 @testset &quot;Struct mangling abstracts&quot; begin
     @test parse_struct(:(struct A &lt;: B x end)).abstract_type == :B
     @test parse_struct(:(mutable struct A &lt;: B x end)).abstract_type == :B
+end
+
+@testset &quot;Mangling type arguments&quot; begin
+    using ModuleMixins: mangle_type_parameters!
+    let s = parse_struct(:(struct S{T} x::T end))
+        @test s.type_parameters == [:T]
+        mangle_type_parameters!(s, :A)
+        @test s.type_parameters == [:_T_A]
+        @test clean(define_struct(s)) == clean(:(struct S{_T_A} x::_T_A end))
+    end
+    let s = parse_struct(:(struct S{T} x::Vector{T} = [] end))
+        mangle_type_parameters!(s, :A)
+        @test clean(define_struct(s)) == clean(:(struct S{_T_A} x::Vector{_T_A} = [] end))
+    end
 end</code></pre><pre><code class="language-julia hljs">#| id: struct-data
 
-struct Struct
+mutable struct Struct
     use_kwdef::Bool
     is_mutable::Bool
     name::Symbol
+    type_parameters::Union{Vector{Symbol},Nothing}
     abstract_type::Union{Symbol,Nothing}
     fields::Vector{Union{Expr,Symbol}}
 end
 
+function mangle_type_parameters!(s::Struct, suffix::Symbol)
+    s.type_parameters === nothing &amp;&amp; return
+
+    d = IdDict{Symbol, Symbol}(
+        (k =&gt; Symbol(&quot;_$(k)_$(suffix)&quot;) for k in s.type_parameters)...)
+
+    replace_type_par(expr) =
+        postwalk(x -&gt; x isa Symbol ? get(d, x, x) : x, expr)
+        
+    s.fields = replace_type_par.(s.fields)
+    s.type_parameters = collect(values(d))
+    return s
+end
+
+function mappend(a::Union{Vector{T}, Nothing}, b::Union{Vector{T}, Nothing}) where T
+    isnothing(a) &amp;&amp; return b
+    isnothing(b) &amp;&amp; return a
+    return vcat(a, b)
+end
+
 function extend_struct!(s1::Struct, s2::Struct)
     append!(s1.fields, s2.fields)
+    s1.type_parameters = mappend(s1.type_parameters, s2.type_parameters)
+    return s1
 end
 
 function parse_struct(expr)
@@ -228,13 +266,16 @@ function parse_struct(expr)
 
     is_mutable = mut_name !== nothing
     sname = is_mutable ? mut_name : name
-    @capture(sname, (name_ &lt;: abst_) | name_)
+    @capture(sname, (pname_ &lt;: abst_) | pname_)
+    @capture(pname, (name_{pars__}) | name_)
 
-    return Struct(uses_kwdef, is_mutable, name, abst, fields)
+
+    return Struct(uses_kwdef, is_mutable, name, pars, abst, fields)
 end
 
 function define_struct(s::Struct)
-    name = s.abstract_type !== nothing ? :($(s.name) &lt;: $(s.abstract_type)) : s.name
+    name = s.type_parameters !== nothing ? :($(s.name){$(s.type_parameters...)}) : s.name
+    name = s.abstract_type !== nothing ? :($(name) &lt;: $(s.abstract_type)) : name
     sdef = if s.is_mutable
         :(mutable struct $name
             $(s.fields...)
@@ -256,8 +297,8 @@ using ModuleMixins
 end
 
 @compose module B
-    struct S
-        b::Int
+    struct S{T}
+        b::T
     end
 end
 
@@ -276,6 +317,9 @@ end
         :WriterC =&gt; [],
         :WriterB =&gt; [:WriterA],
         :WriterA =&gt; [])
+end
+@testset &quot;composed struct has type parameter&quot; begin
+    @test ComposeTest1.AB.S{Float64}(1, 2).b isa Float64
 end</code></pre><pre><code class="language-julia hljs">#| id: compose
 
 struct CollectUsingPass &lt;: Pass
@@ -300,11 +344,13 @@ end
 
 struct CollectStructPass &lt;: Pass
     items::IdDict{Symbol,Struct}
+    name::Symbol
 end
 
 function pass(p::CollectStructPass, expr)
     s = parse_struct(expr)
     s === nothing &amp;&amp; return :nomatch
+    mangle_type_parameters!(s, p.name)
     if s.name in keys(p.items)
         extend_struct!(p.items[s.name], s)
     else
@@ -330,9 +376,10 @@ macro compose(mod)
     parents = MixinPass([])
     usings = CollectUsingPass([])
     consts = CollectConstPass([])
-    structs = CollectStructPass(IdDict())
+    struct_items = IdDict{Symbol, Struct}()
 
     function mixin(expr; name=name)
+        structs = CollectStructPass(struct_items, name)
         parents = MixinPass([])
         pass1 = walk(parents, expr)
         mixin_tree[name] = parents.items
@@ -345,7 +392,7 @@ macro compose(mod)
         walk(usings + consts + structs, pass1)
     end
 
-    fields = CollectStructPass(IdDict())
+    fields = CollectStructPass(IdDict{Symbol,Struct}(), name)
     walk(fields, body)
 
     clean_body = mixin(body)
@@ -357,7 +404,7 @@ macro compose(mod)
         const FIELDS = $(IdDict((n =&gt; v.fields for (n, v) in pairs(fields.items))...))
         $(usings.items...)
         $(consts.items...)
-        $(define_struct.(values(structs.items))...)
+        $(define_struct.(values(struct_items))...)
         $(clean_body...)
     end)))
 end</code></pre><h2 id="For-each"><a class="docs-heading-anchor" href="#For-each">For-each</a><a id="For-each-1"></a><a class="docs-heading-anchor-permalink" href="#For-each" title="Permalink"></a></h2><p>The <code>@for_each</code> macro is meant for situations where you want to call a certain member function for each module that has it defined. Our use case: we have several components that need to write different bits of information to an output file. Each component defines a <code>write(io, data)</code> method. In our composed model, we can now call:</p><pre><code class="language-julia hljs">@for_each(P-&gt;P.write(io, data), PARENTS)</code></pre><pre><code class="language-julia hljs">#| id: test-toplevel
@@ -454,4 +501,4 @@ mermaid.initialize({
     startOnLoad: true,
     theme: "neutral"
 });
-</script></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../30-blog/">« Objects, Inheritance and Modules in Julia</a><a class="docs-footer-nextpage" href="../90-contributing/">Contributing guidelines »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.7.0 on <span class="colophon-date" title="Wednesday 6 November 2024 15:01">Wednesday 6 November 2024</span>. Using Julia version 1.10.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+</script></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../30-blog/">« Objects, Inheritance and Modules in Julia</a><a class="docs-footer-nextpage" href="../90-contributing/">Contributing guidelines »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.7.0 on <span class="colophon-date" title="Wednesday 6 November 2024 20:48">Wednesday 6 November 2024</span>. Using Julia version 1.10.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
