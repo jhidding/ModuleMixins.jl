@@ -1,20 +1,20 @@
-[tool.poetry]
+[project]
 name = "module-mixins"
 version = "0.1.0"
 description = "Dev environment for ModuleMixins.jl"
-authors = ["Johan Hidding <j.hidding@esciencecenter.nl>"]
+authors = [{ name = "Johan Hidding", email = "j.hidding@esciencecenter.nl" }]
+requires-python = "~=3.11"
 readme = "README.md"
+dependencies = [
+    "copier>=9.3.1,<10",
+    "entangled-cli",
+    "pre-commit>=3.8.0,<4",
+]
 
-[tool.poetry.dependencies]
-python = "^3.11"
-copier = "^9.3.1"
-entangled-cli = {git = "https://github.com/entangled/entangled.py"} 
-pre-commit = "^3.8.0"
+[tool.uv]
 
-
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+[tool.uv.sources]
+entangled-cli = { git = "https://github.com/entangled/entangled.py" }
 
 [tool.brei]
 include = [".entangled/tasks.json"]
