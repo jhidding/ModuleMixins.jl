@@ -3,12 +3,10 @@ name = "module-mixins"
 version = "0.1.0"
 description = "Dev environment for ModuleMixins.jl"
 authors = [{ name = "Johan Hidding", email = "j.hidding@esciencecenter.nl" }]
-requires-python = "~=3.11"
+requires-python = "~=3.14.0"
 readme = "README.md"
 dependencies = [
-    "copier>=9.3.1,<10",
-    "entangled-cli",
-    "pre-commit>=3.8.0,<4",
+    "entangled-cli"
 ]
 
 [tool.uv]
@@ -22,4 +20,3 @@ include = [".entangled/tasks.json"]
 [tool.brei.runner.julia]
 command = "julia"
 args = ["--project=docs", "${script}"]
-
