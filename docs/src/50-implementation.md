@@ -201,7 +201,7 @@ end
 end
 ```
 
-A composite pass tries all of its parts in order, returning the value of the first pass that doesn't return `nothing`.
+A composite pass tries all of its parts in order, returning the value of the first pass that doesn't return `:nomatch`.
 
 ```julia
 #| id: spec
@@ -238,6 +238,8 @@ function walk(x::Pass, expr_list)
     prewalk.(patch, expr_list)
 end
 ```
+
+The `MixinPass` now filters for appearances of the `@mixin <Component>` syntax and transforms them into `using ..<Component>`. This assumes that the symbols used are visible in the parent module.
 
 ```julia
 #| id: spec
@@ -323,7 +325,6 @@ end
 
 ```julia
 #| id: struct-data
-
 mutable struct Struct
     use_kwdef::Bool
     is_mutable::Bool
@@ -341,7 +342,7 @@ function mangle_type_parameters!(s::Struct, suffix::Symbol)
 
     replace_type_par(expr) =
         postwalk(x -> x isa Symbol ? get(d, x, x) : x, expr)
-        
+
     s.fields = replace_type_par.(s.fields)
     s.type_parameters = collect(values(d))
     return s
@@ -372,7 +373,6 @@ function parse_struct(expr)
     sname = is_mutable ? mut_name : name
     @capture(sname, (pname_ <: abst_) | pname_)
     @capture(pname, (name_{pars__}) | name_)
-
 
     return Struct(uses_kwdef, is_mutable, name, pars, abst, fields)
 end
@@ -598,7 +598,7 @@ end
 """
     substitute_top_level(var, val, mod, expr)
 
-Takes a syntax object `expr` and substitutes every occurence of 
+Takes a syntax object `expr` and substitutes every occurence of
 module `var` for `val`, only if the resulting object is actually
 present in module `mod`. The `mod` module should correspond with
 a lookup of `val` in the caller's namespace.
