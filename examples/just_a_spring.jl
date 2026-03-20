@@ -1,14 +1,8 @@
 # ~/~ begin <<docs/src/30-blog.md#examples/just_a_spring.jl>>[init]
-#| file: examples/just_a_spring.jl
-#| classes: ["task"]
-#| creates:
-#|   - docs/src/fig/just-a-spring.svg
-#| collect: figures
 module Spring
     # ~/~ begin <<docs/src/30-blog.md#just-a-spring>>[init]
-    #| id: just-a-spring
     using Unitful
-
+    
     @kwdef struct Input
         initial_position::typeof(1.0u"m")
         spring_constant::typeof(1.0u"N/m")
@@ -18,7 +12,6 @@ module Spring
     end
     # ~/~ end
     # ~/~ begin <<docs/src/30-blog.md#just-a-spring>>[1]
-    #| id: just-a-spring
     @kwdef mutable struct State
         time::typeof(1.0u"s")
         position::typeof(1.0u"m")
@@ -26,24 +19,21 @@ module Spring
     end
     # ~/~ end
     # ~/~ begin <<docs/src/30-blog.md#just-a-spring>>[2]
-    #| id: just-a-spring
     init(input::Input) =
         State(time = 0.0u"s", position = input.initial_position, velocity = 0.0u"m/s")
     # ~/~ end
     # ~/~ begin <<docs/src/30-blog.md#just-a-spring>>[3]
-    #| id: just-a-spring
     function step!(input::Input, state::State)
         Δt = input.time_step
         Δx = state.velocity * Δt
         Δv = -state.position * input.spring_constant / input.mass * Δt
-
+    
         state.time += Δt
         state.position += Δx
         state.velocity += Δv
     end
     # ~/~ end
     # ~/~ begin <<docs/src/30-blog.md#just-a-spring>>[4]
-    #| id: just-a-spring
     function energy(input::Input, state::State)
         k = state.velocity^2 * input.mass / 2
         v = state.position^2 * input.spring_constant / 2
@@ -58,9 +48,8 @@ module Script
     using ..Spring
 
     # ~/~ begin <<docs/src/30-blog.md#spring-run-fast>>[init]
-    #| id: spring-run-fast
     struct Model{T} end
-
+    
     function run(::Type{Model{M}}, input) where M
         state = M.init(input)
         Channel{M.State}() do ch
@@ -72,11 +61,10 @@ module Script
     end
     # ~/~ end
     # ~/~ begin <<docs/src/30-blog.md#spring-plot>>[init]
-    #| id: spring-plot
     function plot_result(input, output, energy)
         times = [f.time for f in output]
         pos = [f.position for f in output]
-
+    
         fig = Figure()
         ax1 = Axis(fig[1:2, 1];
             ylabel = "position",

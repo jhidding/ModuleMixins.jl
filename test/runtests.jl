@@ -1,5 +1,4 @@
 # ~/~ begin <<docs/src/50-implementation.md#test/runtests.jl>>[init]
-#| file: test/runtests.jl
 using Test
 using ModuleMixins:
     @spec,
@@ -17,13 +16,11 @@ using MacroTools: prewalk, rmlines
 clean(expr) = prewalk(rmlines, expr)
 
 # ~/~ begin <<docs/src/50-implementation.md#test-toplevel>>[init]
-#| id: test-toplevel
 @spec module MySpec
 const msg = "hello"
 end
 # ~/~ end
 # ~/~ begin <<docs/src/50-implementation.md#test-toplevel>>[1]
-#| id: test-toplevel
 @spec_mixin module MyMixinSpecOne
 @mixin A
 end
@@ -32,7 +29,6 @@ end
 end
 # ~/~ end
 # ~/~ begin <<docs/src/50-implementation.md#test-toplevel>>[2]
-#| id: test-toplevel
 @spec_using module SU_A
 const X = :hello
 export X
@@ -53,13 +49,11 @@ end
 end
 # ~/~ end
 # ~/~ begin <<docs/src/50-implementation.md#test-toplevel>>[3]
-#| id: test-toplevel
 struct EmptyPass <: Pass
     tag::Symbol
 end
 # ~/~ end
 # ~/~ begin <<docs/src/50-implementation.md#test-toplevel>>[4]
-#| id: test-toplevel
 module ComposeTest1
 using ModuleMixins
 
@@ -81,7 +75,6 @@ end
 end
 # ~/~ end
 # ~/~ begin <<docs/src/50-implementation.md#test-toplevel>>[5]
-#| id: test-toplevel
 module Common
     export AbstractData
     abstract type AbstractData end
@@ -127,21 +120,18 @@ end
 
 @testset "ModuleMixins" begin
     # ~/~ begin <<docs/src/50-implementation.md#test>>[init]
-    #| id: test
     @testset "@spec" begin
         @test clean.(MySpec.AST) == clean.([:(const msg = "hello")])
         @test MySpec.msg == "hello"
     end
     # ~/~ end
     # ~/~ begin <<docs/src/50-implementation.md#test>>[1]
-    #| id: test
     @testset "@spec_mixin" begin
         @test MyMixinSpecOne.PARENTS == [:A]
         @test MyMixinSpecMany.PARENTS == [:A, :B, :C]
     end
     # ~/~ end
     # ~/~ begin <<docs/src/50-implementation.md#test>>[2]
-    #| id: test
     @testset "@spec_using" begin
         @test SU_B.Y == SU_A.X
         @test SU_B.PARENTS == [:SU_A]
@@ -150,7 +140,6 @@ end
     end
     # ~/~ end
     # ~/~ begin <<docs/src/50-implementation.md#test>>[3]
-    #| id: test
     @testset "pass composition" begin
         a = EmptyPass(:a) + EmptyPass(:b)
         @test a.parts[1].tag == :a
@@ -158,7 +147,6 @@ end
     end
     # ~/~ end
     # ~/~ begin <<docs/src/50-implementation.md#test>>[4]
-    #| id: test
     cases = Dict(
         :(struct A x end) => Struct(false, false, :A, nothing, nothing, [:x]),
         :(mutable struct A x end) => Struct(false, true, :A, nothing, nothing, [:x]),
@@ -166,7 +154,7 @@ end
         :(@kwdef mutable struct A x end) => Struct(true, true, :A, nothing, nothing, [:x]),
         :(struct A{T} x::T end) => Struct(false, false, :A, [:T], nothing, [:(x::T)]),
     )
-
+    
     for (k, v) in pairs(cases)
         @testset "Struct mangling: $(join(split(string(clean(k))), " "))" begin
             @test clean(define_struct(parse_struct(k))) == clean(k)
@@ -175,12 +163,11 @@ end
     end
     # ~/~ end
     # ~/~ begin <<docs/src/50-implementation.md#test>>[5]
-    #| id: test
     @testset "Struct mangling abstracts" begin
         @test parse_struct(:(struct A <: B x end)).abstract_type == :B
         @test parse_struct(:(mutable struct A <: B x end)).abstract_type == :B
     end
-
+    
     @testset "Mangling type arguments" begin
         using ModuleMixins: mangle_type_parameters!
         let s = parse_struct(:(struct S{T} x::T end))
@@ -196,7 +183,6 @@ end
     end
     # ~/~ end
     # ~/~ begin <<docs/src/50-implementation.md#test>>[6]
-    #| id: test
     @testset "compose struct members" begin
         @test ComposeTest1.AB.PARENTS == [:A, :B]
         @test fieldnames(ComposeTest1.AB.S) == (:a, :b)
@@ -214,7 +200,6 @@ end
     end
     # ~/~ end
     # ~/~ begin <<docs/src/50-implementation.md#test>>[7]
-    #| id: test
     @testset "for-each" begin
         io = IOBuffer(write=true)
         data = WriterABC.Data(a = 42, b = 23)

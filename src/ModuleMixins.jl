@@ -1,5 +1,4 @@
 # ~/~ begin <<docs/src/50-implementation.md#src/ModuleMixins.jl>>[init]
-#| file: src/ModuleMixins.jl
 module ModuleMixins
 
 using MacroTools: @capture, postwalk, prewalk
@@ -7,7 +6,6 @@ using MacroTools: @capture, postwalk, prewalk
 export @compose, @for_each
 
 # ~/~ begin <<docs/src/50-implementation.md#spec>>[init]
-#| id: spec
 """
     @spec module *name*
         *body*...
@@ -29,7 +27,6 @@ macro spec(mod)
 end
 # ~/~ end
 # ~/~ begin <<docs/src/50-implementation.md#spec>>[1]
-#| id: spec
 
 macro spec_mixin(mod)
     @assert @capture(mod, module name_
@@ -46,7 +43,6 @@ macro spec_mixin(mod)
 end
 # ~/~ end
 # ~/~ begin <<docs/src/50-implementation.md#spec>>[2]
-#| id: spec
 
 abstract type Pass end
 
@@ -81,7 +77,6 @@ function walk(x::Pass, expr_list)
 end
 # ~/~ end
 # ~/~ begin <<docs/src/50-implementation.md#spec>>[3]
-#| id: spec
 @kwdef struct MixinPass <: Pass
     items::Vector{Symbol}
 end
@@ -116,7 +111,6 @@ macro spec_using(mod)
 end
 # ~/~ end
 # ~/~ begin <<docs/src/50-implementation.md#mixin>>[init]
-#| id: mixin
 macro mixin(deps)
     if @capture(deps, (multiple_deps__,))
         esc(:(const PARENTS = [$(QuoteNode.(multiple_deps)...)]))
@@ -126,8 +120,6 @@ macro mixin(deps)
 end
 # ~/~ end
 # ~/~ begin <<docs/src/50-implementation.md#struct-data>>[init]
-#| id: struct-data
-
 mutable struct Struct
     use_kwdef::Bool
     is_mutable::Bool
@@ -145,7 +137,7 @@ function mangle_type_parameters!(s::Struct, suffix::Symbol)
 
     replace_type_par(expr) =
         postwalk(x -> x isa Symbol ? get(d, x, x) : x, expr)
-        
+
     s.fields = replace_type_par.(s.fields)
     s.type_parameters = collect(values(d))
     return s
@@ -177,7 +169,6 @@ function parse_struct(expr)
     @capture(sname, (pname_ <: abst_) | pname_)
     @capture(pname, (name_{pars__}) | name_)
 
-
     return Struct(uses_kwdef, is_mutable, name, pars, abst, fields)
 end
 
@@ -197,7 +188,6 @@ function define_struct(s::Struct)
 end
 # ~/~ end
 # ~/~ begin <<docs/src/50-implementation.md#compose>>[init]
-#| id: compose
 
 struct CollectUsingPass <: Pass
     items::Vector{Expr}
@@ -287,11 +277,10 @@ macro compose(mod)
 end
 # ~/~ end
 # ~/~ begin <<docs/src/50-implementation.md#for-each>>[init]
-#| id: for-each
 """
     substitute_top_level(var, val, mod, expr)
 
-Takes a syntax object `expr` and substitutes every occurence of 
+Takes a syntax object `expr` and substitutes every occurence of
 module `var` for `val`, only if the resulting object is actually
 present in module `mod`. The `mod` module should correspond with
 a lookup of `val` in the caller's namespace.

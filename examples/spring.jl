@@ -1,5 +1,4 @@
 # ~/~ begin <<docs/src/20-example.md#examples/spring.jl>>[init]
-#| file: examples/spring.jl
 
 using ModuleMixins
 using CairoMakie
@@ -17,7 +16,6 @@ module Common
 end
 
 # ~/~ begin <<docs/src/20-example.md#example-time>>[init]
-#| id: example-time
 
 @compose module Time
     using Unitful
@@ -48,7 +46,6 @@ end
 end
 # ~/~ end
 # ~/~ begin <<docs/src/20-example.md#example-spring>>[init]
-#| id: example-spring
 
 @compose module Spring
     @mixin Time
@@ -73,7 +70,6 @@ end
 end
 # ~/~ end
 # ~/~ begin <<docs/src/20-example.md#example-run>>[init]
-#| id: example-run
 
 @compose module Model
     @mixin Time, Spring
@@ -91,7 +87,6 @@ end
 end
 # ~/~ end
 # ~/~ begin <<docs/src/20-example.md#example-run>>[1]
-#| id: example-run
 
 function plot_result()
     input = Model.Input(
