@@ -1,0 +1,79 @@
+# ~/~ begin <<docs/src/50-implementation.md#src/Constructors.jl>>[init]
+module Constructors
+
+using MacroTools: @capture
+using .Iterators: repeated
+
+import ..Passes: Pass, pass, no_match
+import ..Structs: Struct
+
+# ~/~ begin <<docs/src/50-implementation.md#constructor-pass>>[init]
+named_tuple_keys(::Type{NamedTuple{names, types}}) where {names, types} = names
+named_tuple_keys(::Type{NamedTuple{names, <:types}}) where {names, types} = names
+
+struct Constructor
+    name::Symbol
+    arg_names::Vector{Symbol}
+    return_type_name::Symbol
+    parts::Vector{Pair{Vector{Symbol}, Expr}}
+end
+
+function Base.:+(a::Constructor, b::Constructor)
+    @assert a.name == b.name
+    @assert a.arg_names == b.arg_names
+    @assert a.return_type_name == b.return_type_name
+    @assert isdisjoint(first.(a.parts), first(b.parts))
+
+    return Constructor(
+        a.name, a.arg_names, a.return_type_name,
+        vcat(a.parts, b.parts))
+end
+
+Base.fieldnames(c::Constructor) = vcat(first.(c.parts))
+
+function define_constructor(s::Struct, c::Constructor)
+    @assert s.name == c.return_type_name
+    @assert issetequal(fieldnames(s), fieldnames(c)) "constructor should construct all fields of struct"
+    return :(function $(c.name)($(c.arg_names...),)
+        $((:($(first(p)...) = (last(p))($(c.arg_names...),))
+           for p in c.parts)...)
+        $(c.name)($(fieldnames(s)...),)
+    end)
+end
+
+function parse_constructor(f)
+    @assert @capture(f, function name_(args__)::return_type_name_ body__ end)
+    n_args = length(args)
+    arg_names = [a.args[1] for a in args]
+    expr = :(function ($(arg_names...),) $(body...) end)
+
+    rt_vec = Base.return_types(eval(expr), (repeated(Any, n_args)...,))
+    @assert (length(rt_vec) == 1) "constructor function should be type stable"
+    rt = rt_vec[1]
+    @assert (rt <: NamedTuple) "constructor function should return a NamedTuple"
+    ret_names = [named_tuple_keys(rt)...]
+
+    return Constructor(name, arg_names, return_type_name, [ret_names => expr])
+end
+
+struct CollectConstructorPass <: Pass
+    items::Dict{Symbol, Constructor}
+end
+
+function pass(p::CollectConstructorPass, expr)
+    @capture(expr, @constructor constructor_expr_) || return no_match
+    data = parse_constructor(constructor_expr)
+
+    key = data.return_type_name
+    if key in p.items
+        p.items[key] += data
+    else
+        p.items[key] = data
+    end
+
+    return nothing
+end
+# ~/~ end
+
+end
+# ~/~ end
