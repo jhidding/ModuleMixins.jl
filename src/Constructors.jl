@@ -30,11 +30,16 @@ Base.fieldnames(c::Constructor) = vcat(first.(c.parts)...)
 
 named_tuple_keys(::Type{NamedTuple{names, types}}) where {names, types} = names
 named_tuple_keys(::Type{NamedTuple{names, <:types}}) where {names, types} = names
+arg_name(arg::Symbol) = arg
+arg_name(expr::Expr) = begin
+    @capture(expr, name_::atype_)
+    name
+end
 
 function parse_constructor(f)
     @assert @capture(f, function name_(args__)::return_type_name_ body__ end)
     n_args = length(args)
-    arg_names = [a.args[1] for a in args]
+    arg_names = [arg_name(a) for a in args]
     expr = :(function ($(arg_names...),) $(body...) end)
 
     rt_vec = Base.return_types(eval(expr), (repeated(Any, n_args)...,))
