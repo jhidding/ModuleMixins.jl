@@ -6,6 +6,7 @@ using Test
     include("PassesSpec.jl")
     include("MixinsSpec.jl")
     include("StructsSpec.jl")
+    include("ConstructorsSpec.jl")
     include("ComposeSpec.jl")
 end
 # ~/~ end

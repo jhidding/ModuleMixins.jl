@@ -8,9 +8,6 @@ import ..Passes: Pass, pass, no_match
 import ..Structs: Struct
 
 # ~/~ begin <<docs/src/50-implementation.md#constructor-pass>>[init]
-named_tuple_keys(::Type{NamedTuple{names, types}}) where {names, types} = names
-named_tuple_keys(::Type{NamedTuple{names, <:types}}) where {names, types} = names
-
 struct Constructor
     name::Symbol
     arg_names::Vector{Symbol}
@@ -29,17 +26,10 @@ function Base.:+(a::Constructor, b::Constructor)
         vcat(a.parts, b.parts))
 end
 
-Base.fieldnames(c::Constructor) = vcat(first.(c.parts))
+Base.fieldnames(c::Constructor) = vcat(first.(c.parts)...)
 
-function define_constructor(s::Struct, c::Constructor)
-    @assert s.name == c.return_type_name
-    @assert issetequal(fieldnames(s), fieldnames(c)) "constructor should construct all fields of struct"
-    return :(function $(c.name)($(c.arg_names...),)
-        $((:($(first(p)...) = (last(p))($(c.arg_names...),))
-           for p in c.parts)...)
-        $(c.name)($(fieldnames(s)...),)
-    end)
-end
+named_tuple_keys(::Type{NamedTuple{names, types}}) where {names, types} = names
+named_tuple_keys(::Type{NamedTuple{names, <:types}}) where {names, types} = names
 
 function parse_constructor(f)
     @assert @capture(f, function name_(args__)::return_type_name_ body__ end)
@@ -55,9 +45,10 @@ function parse_constructor(f)
 
     return Constructor(name, arg_names, return_type_name, [ret_names => expr])
 end
-
+# ~/~ end
+# ~/~ begin <<docs/src/50-implementation.md#constructor-pass>>[1]
 struct CollectConstructorPass <: Pass
-    items::Dict{Symbol, Constructor}
+    items::IdDict{Symbol, Constructor}
 end
 
 function pass(p::CollectConstructorPass, expr)
@@ -65,13 +56,23 @@ function pass(p::CollectConstructorPass, expr)
     data = parse_constructor(constructor_expr)
 
     key = data.return_type_name
-    if key in p.items
+    if key in keys(p.items)
         p.items[key] += data
     else
         p.items[key] = data
     end
 
     return nothing
+end
+
+function define_constructor(s::Struct, c::Constructor)
+    @assert s.name == c.return_type_name
+    @assert issetequal(fieldnames(s), fieldnames(c)) "constructor should construct all fields of struct, expected $(fieldnames(s)), got $(fieldnames(c))"
+    return :(function $(c.name)($(c.arg_names...),)
+        $((:(($(first(p)...),) = ($(last(p)))($(c.arg_names...),))
+           for p in c.parts)...)
+        $(c.return_type_name)($(fieldnames(s)...),)
+    end)
 end
 # ~/~ end
 

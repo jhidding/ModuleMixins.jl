@@ -39,6 +39,7 @@ using Test
     include("PassesSpec.jl")
     include("MixinsSpec.jl")
     include("StructsSpec.jl")
+    include("ConstructorsSpec.jl")
     include("ComposeSpec.jl")
 end
 ```
@@ -755,58 +756,50 @@ Once we have several structs in place, we might want to generate one type from a
 end
 ```
 
-The following defines a macro that converts that syntax into usable information to compose a larger constructor.
-
 ```julia
-module Constructors
-	using MacroTools
-	using .Iterators: repeated
+#| file: test/ConstructorsSpec.jl
+module ConstructorTest
+    using ModuleMixins
 
-	named_tuple_keys(::Type{NamedTuple{names, types}}) where {names, types} = names
-	named_tuple_keys(::Type{NamedTuple{names, <:types}}) where {names, types} = names
+    @compose module CtA
+        struct S
+            x
+        end
 
-	struct Constructor
-		name::Symbol
-		arg_names::Vector{Symbol}
-		return_type_name::Symbol
-		parts::Vector{Pair{Vector{Symbol}, Expr}}
-	end
+        @constructor function make_s()::S
+            (x = 5,)
+        end
+    end
 
-	function Base.:+(a::Constructor, b::Constructor)
-		@assert a.name == b.name
-		@assert a.arg_names == b.arg_names
-		@assert a.return_type_name == b.return_type_name
-		@assert isdisjoint(first.(a.parts), first(b.parts))
+    @compose module CtB
+        @mixin CtA
 
-		return Constructor(
-			a.name, a.arg_names, a.return_type_name,
-			vcat(a.parts, b.parts))
-	end
+        struct S
+            y
+            z
+        end
 
-	macro constructor(f)
-		@assert @capture(f, function name_(args__)::return_type_name_ body__ end)
-		n_args = length(args)
-		arg_names = [a.args[1] for a in args]
-		expr = :(function ($(arg_names...),) $(body...) end)
+        @constructor function make_s()::S
+            (y = 7, z = 9)
+        end
+    end
+end
 
-		rt_vec = Base.return_types(eval(expr), (repeated(Any, n_args)...,))
-		@assert (length(rt_vec) == 1) "constructor function should be type stable"
-		rt = rt_vec[1]
-		@assert (rt <: NamedTuple) "constructor function should return a NamedTuple"
-		ret_names = [named_tuple_keys(rt)...]
+@testset "ModuleMixins.Constructors" begin
+    using .ConstructorTest: CtA, CtB
+    using ModuleMixins
 
-		return Constructor(name, arg_names, return_type_name, [ret_names => expr])
-	end
+    @test CtA.make_s() == CtA.S(5)
+    @test CtB.make_s() == CtB.S(5, 7, 9)
 end
 ```
 
-We can turn this into a `Pass`, so that the `@constructor` macro gets integrated into `@compose`.
+### Implementation
+
+The following defines a macro that converts that syntax into usable information to compose a larger constructor.
 
 ```julia
 #| id: constructor-pass
-named_tuple_keys(::Type{NamedTuple{names, types}}) where {names, types} = names
-named_tuple_keys(::Type{NamedTuple{names, <:types}}) where {names, types} = names
-
 struct Constructor
     name::Symbol
     arg_names::Vector{Symbol}
@@ -825,17 +818,10 @@ function Base.:+(a::Constructor, b::Constructor)
         vcat(a.parts, b.parts))
 end
 
-Base.fieldnames(c::Constructor) = vcat(first.(c.parts))
+Base.fieldnames(c::Constructor) = vcat(first.(c.parts)...)
 
-function define_constructor(s::Struct, c::Constructor)
-    @assert s.name == c.return_type_name
-    @assert issetequal(fieldnames(s), fieldnames(c)) "constructor should construct all fields of struct"
-    return :(function $(c.name)($(c.arg_names...),)
-        $((:($(first(p)...) = (last(p))($(c.arg_names...),))
-           for p in c.parts)...)
-        $(c.name)($(fieldnames(s)...),)
-    end)
-end
+named_tuple_keys(::Type{NamedTuple{names, types}}) where {names, types} = names
+named_tuple_keys(::Type{NamedTuple{names, <:types}}) where {names, types} = names
 
 function parse_constructor(f)
     @assert @capture(f, function name_(args__)::return_type_name_ body__ end)
@@ -851,9 +837,14 @@ function parse_constructor(f)
 
     return Constructor(name, arg_names, return_type_name, [ret_names => expr])
 end
+```
 
+We can turn this into a `Pass`, so that the `@constructor` macro gets integrated into `@compose`.
+
+```julia
+#| id: constructor-pass
 struct CollectConstructorPass <: Pass
-    items::Dict{Symbol, Constructor}
+    items::IdDict{Symbol, Constructor}
 end
 
 function pass(p::CollectConstructorPass, expr)
@@ -861,13 +852,23 @@ function pass(p::CollectConstructorPass, expr)
     data = parse_constructor(constructor_expr)
 
     key = data.return_type_name
-    if key in p.items
+    if key in keys(p.items)
         p.items[key] += data
     else
         p.items[key] = data
     end
 
     return nothing
+end
+
+function define_constructor(s::Struct, c::Constructor)
+    @assert s.name == c.return_type_name
+    @assert issetequal(fieldnames(s), fieldnames(c)) "constructor should construct all fields of struct, expected $(fieldnames(s)), got $(fieldnames(c))"
+    return :(function $(c.name)($(c.arg_names...),)
+        $((:(($(first(p)...),) = ($(last(p)))($(c.arg_names...),))
+           for p in c.parts)...)
+        $(c.return_type_name)($(fieldnames(s)...),)
+    end)
 end
 ```
 
