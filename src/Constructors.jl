@@ -37,18 +37,14 @@ arg_name(expr::Expr) = begin
 end
 
 function parse_constructor(f)
-    @assert @capture(f, function name_(args__)::return_type_name_ body__ end)
+    @assert (
+        @capture(f, function name_(args__)::return_type_name_[fields__] body__ end) ||
+        @capture(f, name_(args__)::return_type_name_[fields__] = body__)
+    ) "constructor expression doesn't match short or long form function:\n $f"
     n_args = length(args)
     arg_names = [arg_name(a) for a in args]
     expr = :(function ($(arg_names...),) $(body...) end)
-
-    rt_vec = Base.return_types(eval(expr), (repeated(Any, n_args)...,))
-    @assert (length(rt_vec) == 1) "constructor function should be type stable"
-    rt = rt_vec[1]
-    @assert (rt <: NamedTuple) "constructor function should return a NamedTuple"
-    ret_names = [named_tuple_keys(rt)...]
-
-    return Constructor(name, arg_names, return_type_name, [ret_names => expr])
+    return Constructor(name, arg_names, return_type_name, [fields => expr])
 end
 # ~/~ end
 # ~/~ begin <<docs/src/50-implementation.md#constructor-pass>>[1]

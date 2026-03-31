@@ -7,9 +7,7 @@ module ConstructorTest
             x
         end
 
-        @constructor function make_s()::S
-            (x = 5,)
-        end
+        @constructor make_s()::S[x] = (x = 5,)
     end
 
     @compose module CtB
@@ -20,7 +18,7 @@ module ConstructorTest
             z
         end
 
-        @constructor function make_s()::S
+        @constructor function make_s()::S[y, z]
             (y = 7, z = 9)
         end
     end

@@ -748,10 +748,10 @@ end
 Once we have several structs in place, we might want to generate one type from another. Suppose we have an `Input` struct and a `State` struct, and we want to automatically compose an `initial_state` function. We can do this if we have a function `state_field(input::Input)` returning the initial state for some field of `State`. We also may have the situation that we want to compute several fields in one go for efficiency.
 
 ```julia
-@constructor function initial_state(input::Input)::State
+@constructor function initial_state(input::Input)::State[state_var1, state_var2]
     return (
         state_var1 = 42,
-        ...
+        state_var2 = "pangalactic gargleblaster"
     )
 end
 ```
@@ -766,9 +766,7 @@ module ConstructorTest
             x
         end
 
-        @constructor function make_s()::S
-            (x = 5,)
-        end
+        @constructor make_s()::S[x] = (x = 5,)
     end
 
     @compose module CtB
@@ -779,7 +777,7 @@ module ConstructorTest
             z
         end
 
-        @constructor function make_s()::S
+        @constructor function make_s()::S[y, z]
             (y = 7, z = 9)
         end
     end
@@ -829,18 +827,14 @@ arg_name(expr::Expr) = begin
 end
 
 function parse_constructor(f)
-    @assert @capture(f, function name_(args__)::return_type_name_ body__ end)
+    @assert (
+        @capture(f, function name_(args__)::return_type_name_[fields__] body__ end) ||
+        @capture(f, name_(args__)::return_type_name_[fields__] = body__)
+    ) "constructor expression doesn't match short or long form function:\n $f"
     n_args = length(args)
     arg_names = [arg_name(a) for a in args]
     expr = :(function ($(arg_names...),) $(body...) end)
-
-    rt_vec = Base.return_types(eval(expr), (repeated(Any, n_args)...,))
-    @assert (length(rt_vec) == 1) "constructor function should be type stable"
-    rt = rt_vec[1]
-    @assert (rt <: NamedTuple) "constructor function should return a NamedTuple"
-    ret_names = [named_tuple_keys(rt)...]
-
-    return Constructor(name, arg_names, return_type_name, [ret_names => expr])
+    return Constructor(name, arg_names, return_type_name, [fields => expr])
 end
 ```
 

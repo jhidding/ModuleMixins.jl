@@ -149,16 +149,14 @@ Our very first component stores the `Input` inside the `State` for later referen
 
 ```@example 2
 @compose module ModelBase
-    struct Input
+    @kwdef struct Input
     end
 
     struct State{I}
         input::I
     end
 
-    @constructor function initial_state(input)::State
-        (input = input,)
-    end
+    @constructor initial_state(input)::State[input] = (input = input,)
 end
 ```
 
@@ -171,7 +169,7 @@ Our first real component introduces time:
     @mixin ModelBase
     using ..Common
 
-    struct Input
+    @kwdef struct Input
         delta_t::Seconds = 0.1u"s"
         steps::Int = 1000
     end
@@ -180,9 +178,7 @@ Our first real component introduces time:
         step::Int
     end
 
-    @constructor function initial_state(input)::State
-        (step = 0,)
-    end
+    @constructor initial_state(input)::State[step] = (step = 0,)
 
     time(state) = state.step * state.input.delta_t
 end
@@ -195,7 +191,7 @@ We may model a pendulum:
     using ..Common
     @mixin Time
 
-    struct Input
+    @kwdef struct Input
         length::Meters = 1.0u"m"
         mass::Kilograms = 1.0u"kg"
         initial_angle::Radians = 30.0u"deg"
@@ -206,7 +202,7 @@ We may model a pendulum:
         angular_velocity::RadiansPerSecond
     end
 
-    @constructor function initial_state(input)::State
+    @constructor function initial_state(input)::State[angle, angular_velocity]
         (angle = input.initial_angle,
          angular_velocity = 0.0u"rad/s")
     end
