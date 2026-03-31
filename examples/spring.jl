@@ -1,5 +1,4 @@
 # ~/~ begin <<docs/src/20-example.md#examples/spring.jl>>[init]
-#| file: examples/spring.jl
 
 using ModuleMixins
 using CairoMakie
@@ -17,7 +16,6 @@ module Common
 end
 
 # ~/~ begin <<docs/src/20-example.md#example-time>>[init]
-#| id: example-time
 
 @compose module Time
     using Unitful
@@ -31,6 +29,8 @@ end
     mutable struct State <: AbstractState
         time::typeof(1.0u"s")
     end
+
+    @constructor initial_state(input)::State[time] = (time = 0.0u"s",)
 
     function step!(input::AbstractInput, state::AbstractState)
         state.time += input.t_step
@@ -48,7 +48,6 @@ end
 end
 # ~/~ end
 # ~/~ begin <<docs/src/20-example.md#example-spring>>[init]
-#| id: example-spring
 
 @compose module Spring
     @mixin Time
@@ -65,6 +64,10 @@ end
         velocity::typeof(1.0u"m/s")
     end
 
+    @constructor initial_state(input)::State[position, velocity] = (
+        position = input.initial_position,
+        velocity = 0.0u"m/s")
+
     function step!(input::AbstractInput, state::AbstractState)
         delta_v = -input.spring_constant * state.position
         state.position += state.velocity * input.t_step
@@ -73,7 +76,6 @@ end
 end
 # ~/~ end
 # ~/~ begin <<docs/src/20-example.md#example-run>>[init]
-#| id: example-run
 
 @compose module Model
     @mixin Time, Spring
@@ -84,14 +86,9 @@ end
         Spring.step!(input, state)
         Time.step!(input, state)
     end
-
-    function initial_state(input::Input)
-        return State(0.0u"s", input.initial_position, 0.0u"m/s")
-    end
 end
 # ~/~ end
 # ~/~ begin <<docs/src/20-example.md#example-run>>[1]
-#| id: example-run
 
 function plot_result()
     input = Model.Input(

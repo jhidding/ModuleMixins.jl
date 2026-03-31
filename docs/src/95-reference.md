@@ -13,5 +13,5 @@ Pages = ["95-reference.md"]
 ```
 
 ```@autodocs
-Modules = [ModuleMixins]
+Modules = [ModuleMixins, ModuleMixins.Passes, ModuleMixins.Spec]
 ```

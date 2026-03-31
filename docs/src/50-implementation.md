@@ -8,13 +8,20 @@ The way `ModuleMixins` is implemented, is that we start out with something relat
 #| file: src/ModuleMixins.jl
 module ModuleMixins
 
-using MacroTools: @capture, postwalk, prewalk
+include("Passes.jl")
+include("Spec.jl")
+include("Mixins.jl")
+include("Structs.jl")
+include("Constructors.jl")
+
+using MacroTools: @capture, postwalk
+import .Passes: Pass, pass, no_match, walk
+import .Mixins: MixinPass
+import .Structs: Struct, CollectStructPass, define_struct
+import .Constructors: Constructor, CollectConstructorPass, define_constructor
 
 export @compose, @for_each
 
-<<spec>>
-<<mixin>>
-<<struct-data>>
 <<compose>>
 <<for-each>>
 
@@ -26,48 +33,71 @@ To facilitate testing, we need to be able to compare syntax. We use the `clean` 
 ```julia
 #| file: test/runtests.jl
 using Test
-using ModuleMixins:
-    @spec,
-    @spec_mixin,
-    @spec_using,
-    @mixin,
-    Struct,
-    parse_struct,
-    define_struct,
-    Pass,
-    @compose,
-    @for_each
-using MacroTools: prewalk, rmlines
 
-clean(expr) = prewalk(rmlines, expr)
-
-<<test-toplevel>>
-
-@testset "ModuleMixins" begin
-    <<test>>
+@testset "ModuleMixins.jl" begin
+    include("SpecSpec.jl")
+    include("PassesSpec.jl")
+    include("MixinsSpec.jl")
+    include("StructsSpec.jl")
+    include("ConstructorsSpec.jl")
+    include("ComposeSpec.jl")
 end
 ```
 
-## `@spec`
+## Etudes in Macro Programming
+
+### `@spec`
 
 The `@spec` macro creates a new module, and stores its own AST inside that module.
 
+!!! details "src/Spec.jl"
+
+    ```julia
+    #| file: src/Spec.jl
+    module Spec
+
+    using MacroTools: @capture
+    export @spec
+
+    <<spec>>
+
+    end
+    ```
+
+We may test that this works using a small example.
+
+!!! details "test/SpecSpec.jl"
+
+    ```julia
+    #| file: test/SpecSpec.jl
+    <<test-spec-toplevel>>
+
+    @testset "ModuleMixins.Spec" begin
+        using MacroTools: prewalk, rmlines
+        clean(expr) = prewalk(rmlines, expr)
+
+        <<test-spec>>
+    end
+    ```
+
 ```julia
-#| id: test-toplevel
+#| id: test-spec-toplevel
+using ModuleMixins.Spec: @spec, @spec_mixin, @mixin
+
 @spec module MySpec
 const msg = "hello"
 end
 ```
 
 ```julia
-#| id: test
+#| id: test-spec
 @testset "@spec" begin
     @test clean.(MySpec.AST) == clean.([:(const msg = "hello")])
     @test MySpec.msg == "hello"
 end
 ```
 
-The `@spec` macro is used to specify the structs of a model component.
+This may seem like a silly example, but storing the AST of a module inside itself is very powerful. It means that inside macros we can always return to original expressions of other modules and devise ways of combining, composing and compiling new modules from them.
 
 ```julia
 #| id: spec
@@ -92,12 +122,16 @@ macro spec(mod)
 end
 ```
 
+Inside `ModuleMixins` we make extensive use of `MacroTools.@capture`. Preceding `@capture` with `@assert` is a quickfire way of making sure that our macro was called with the correct syntax.
+
+When defining a new module we have to create a **top-level expression**, and call `esc` on the entire expression to make sure no symbols are mangled.
+
 ### `@spec_mixin`
 
 We now add the `@mixin` syntax. This still doesn't do anything, other than storing the names of parent modules.
 
 ```julia
-#| id: test-toplevel
+#| id: test-spec-toplevel
 @spec_mixin module MyMixinSpecOne
 @mixin A
 end
@@ -107,7 +141,7 @@ end
 ```
 
 ```julia
-#| id: test
+#| id: test-spec
 @testset "@spec_mixin" begin
     @test MyMixinSpecOne.PARENTS == [:A]
     @test MyMixinSpecMany.PARENTS == [:A, :B, :C]
@@ -117,7 +151,7 @@ end
 Here's the `@mixin` macro:
 
 ```julia
-#| id: mixin
+#| id: spec
 macro mixin(deps)
     if @capture(deps, (multiple_deps__,))
         esc(:(const PARENTS = [$(QuoteNode.(multiple_deps)...)]))
@@ -147,67 +181,39 @@ macro spec_mixin(mod)
 end
 ```
 
-### `@spec_using`
+## Passes
 
-I can't think of any usecase where a `@mixin A`, doesn't also mean `using ..A`. By replacing the `@mixin` with a `using` statement, we also no longer need to import `@mixin`. In fact, that macro becomes redundant. Also, in `@spec_using` we're allowed multiple `@mixin` statements.
+We now use the `prewalk` function (from `MacroTools.jl`) to transform expressions and collect information into searchable data structures. We make a little abstraction over the `prewalk` function, so we can compose multiple transformations in a single tree walk.
 
-```julia
-#| id: test-toplevel
-@spec_using module SU_A
-const X = :hello
-export X
-end
+An implementation of the `pass` function should take a `Pass` object and an expression (or symbol), and return `no_match` if the expression did not match the pattern.
 
-@spec_using module SU_B
-@mixin SU_A
-const Y = X
-end
-
-@spec_using module SU_C
-const Z = :goodbye
-end
-
-@spec_using module SU_D
-@mixin SU_A
-@mixin SU_B, SU_C
-end
-```
+Types that derive from `Pass` can be added into a composite `CompositePass` using the `+` operator.
 
 ```julia
-#| id: test
-@testset "@spec_using" begin
-    @test SU_B.Y == SU_A.X
-    @test SU_B.PARENTS == [:SU_A]
-    @test SU_D.PARENTS == [:SU_A, :SU_B, :SU_C]
-    @test SU_D.SU_C.Z == :goodbye
-end
-```
+#| file: src/Passes.jl
+module Passes
 
-We now use the `postwalk` function (from `MacroTools.jl`) to transform expressions and collect information into searchable data structures. We make a little abstraction over the `postwalk` function, so we can compose multiple transformations in a single tree walk.
+using MacroTools: prewalk
 
-```julia
-#| id: test-toplevel
-struct EmptyPass <: Pass
-    tag::Symbol
-end
-```
-
-```julia
-#| id: test
-@testset "pass composition" begin
-    a = EmptyPass(:a) + EmptyPass(:b)
-    @test a.parts[1].tag == :a
-    @test a.parts[2].tag == :b
-end
-```
-
-A composite pass tries all of its parts in order, returning the value of the first pass that doesn't return `nothing`.
-
-```julia
-#| id: spec
+export Pass, pass, no_match, walk
 
 abstract type Pass end
 
+struct NoMatch end
+
+const no_match = NoMatch()
+
+"""
+    pass(x::Pass, expr)
+
+Interface. An implementation of the `pass` function should take a `Pass` object
+and an expression (or symbol), and return `no_match` if the expression did not
+match the pattern.
+
+You can use the given `Pass` object to store information about this pass, return
+syntax that should replace the current expression, or `nothing` if it should be
+removed.
+"""
 function pass(x::Pass, expr)
     error("Can't call `pass` on abstract `Pass`.")
 end
@@ -220,33 +226,102 @@ Base.:+(a::CompositePass...) = CompositePass(splat(vcat)(getfield.(a, :parts)))
 Base.convert(::Type{CompositePass}, a::Pass) = CompositePass([a])
 Base.:+(a::Pass...) = splat(+)(convert.(CompositePass, a))
 
+"""
+    pass(x::CompositePass, expr)
+
+Tries all passes in a composite pass in order, and returns with the first
+that succeeds (i.e. doesn't return `no_match`). You may create a `CompositePass`
+by adding passes with the `+` operator.
+"""
 function pass(cp::CompositePass, expr)
     for p in cp.parts
         result = pass(p, expr)
-        if result !== :nomatch
+        if result !== no_match
             return result
         end
     end
-    return :nomatch
+    return no_match
 end
 
+"""
+    walk(x::Pass, expr_list)
+
+Calls `MacroTools.prewalk` with the given `Pass`. If `no_match` is returned,
+the expression stays untouched.
+"""
 function walk(x::Pass, expr_list)
     function patch(expr)
         result = pass(x, expr)
-        result === :nomatch ? expr : result
+        result === no_match ? expr : result
     end
     prewalk.(patch, expr_list)
 end
+
+end
 ```
 
+A composite pass tries all of its parts in order, returning the value of the first pass that doesn't return `no_match`.
+
+### Tests
+
+!!! details "test/PassesSpec.jl"
+
+    ```julia
+    #| file: test/PassesSpec.jl
+    @testset "ModuleMixins.Passes" begin
+        using ModuleMixins.Passes: Passes, Pass, no_match, pass, walk
+
+        <<test-passes>>
+    end
+    ```
+
+We define a small pass that replaces some symbol with `blip!`.
+
 ```julia
-#| id: spec
+#| id: test-passes
+struct BlipPass <: Pass
+    tag::Symbol
+end
+
+Passes.pass(p::BlipPass, expr) = expr == p.tag ? :blip! : no_match
+```
+
+We can test that this works on small tuple expression.
+
+```julia
+#| id: test-passes
+@testset "pass replacement" begin
+    @test walk(BlipPass(:a), [:(a, b)])[1] == :(blip!, b)
+    @test walk(BlipPass(:b), [:(a, b)])[1] == :(a, blip!)
+end
+```
+
+And then that it composes to replace both elements in the tuple.
+
+```julia
+#| id: test-passes
+@testset "pass composition" begin
+    a = BlipPass(:a) + BlipPass(:b)
+    @test walk(a, [:(a, b)])[1] == :(blip!, blip!)
+end
+```
+
+## Mixin Pass
+The `MixinPass` now filters for appearances of the `@mixin <Component>` syntax and transforms them into `using ..<Component>`. This assumes that the symbols used are visible in the parent module.
+
+```julia
+#| file: src/Mixins.jl
+module Mixins
+
+using MacroTools: @capture
+import ..Passes: Pass, pass, no_match, walk
+
 @kwdef struct MixinPass <: Pass
     items::Vector{Symbol}
 end
 
 function pass(m::MixinPass, expr)
-    @capture(expr, @mixin deps_) || return :nomatch
+    @capture(expr, @mixin deps_) || return no_match
 
     if @capture(deps, (multiple_deps__,))
         append!(m.items, multiple_deps)
@@ -273,14 +348,66 @@ macro spec_using(mod)
         const PARENTS = [$(QuoteNode.(parents.items)...)]
     end)))
 end
+
+end
+```
+
+### Test: `@spec_using`
+
+I can't think of any usecase where a `@mixin A`, doesn't also mean `using ..A`. By replacing the `@mixin` with a `using` statement, we also no longer need to import `@mixin`. In fact, that macro becomes redundant. Also, in `@spec_using` we're allowed multiple `@mixin` statements.
+
+```julia
+#| file: test/MixinsSpec.jl
+using ModuleMixins.Mixins: @spec_using
+
+@testset "ModuleMixins.Mixins" begin
+    @spec_using module SU_A
+    const X = :hello
+    export X
+    end
+
+    @spec_using module SU_B
+    @mixin SU_A
+    const Y = X
+    end
+
+    @spec_using module SU_C
+    const Z = :goodbye
+    end
+
+    @spec_using module SU_D
+    @mixin SU_A
+    @mixin SU_B, SU_C
+    end
+
+    @testset "@spec_using" begin
+        @test SU_B.Y == SU_A.X
+        @test SU_B.PARENTS == [:SU_A]
+        @test SU_D.PARENTS == [:SU_A, :SU_B, :SU_C]
+        @test SU_D.SU_C.Z == :goodbye
+    end
+end
 ```
 
 ## Structure of structs
 
 We'll convert `struct` syntax into collectable data, then convert that back into structs again. We'll support several patterns:
 
+!!! details "test/StructsSpec.jl"
+
+    ```julia
+    #| file: test/StructsSpec.jl
+    @testset "ModuleMixins.Structs" begin
+        using ModuleMixins.Structs: Struct, parse_struct, define_struct, mangle_type_parameters!
+        using MacroTools: prewalk, rmlines
+        clean(expr) = prewalk(rmlines, expr)
+
+        <<test-structs>>
+    end
+    ```
+
 ```julia
-#| id: test
+#| id: test-structs
 cases = Dict(
     :(struct A x end) => Struct(false, false, :A, nothing, nothing, [:x]),
     :(mutable struct A x end) => Struct(false, true, :A, nothing, nothing, [:x]),
@@ -300,14 +427,13 @@ end
 Each of these can have either just a `Symbol` for a name, or a `A <: B` expression. This is a bit cumbersome, but we'll have to deal with all of these cases.
 
 ```julia
-#| id: test
+#| id: test-structs
 @testset "Struct mangling abstracts" begin
     @test parse_struct(:(struct A <: B x end)).abstract_type == :B
     @test parse_struct(:(mutable struct A <: B x end)).abstract_type == :B
 end
 
 @testset "Mangling type arguments" begin
-    using ModuleMixins: mangle_type_parameters!
     let s = parse_struct(:(struct S{T} x::T end))
         @test s.type_parameters == [:T]
         mangle_type_parameters!(s, :A)
@@ -319,11 +445,36 @@ end
         @test clean(define_struct(s)) == clean(:(struct S{_T_A} x::Vector{_T_A} = [] end))
     end
 end
+
+@testset "Getting fieldnames" begin
+    let s = parse_struct(:(struct S x; y; z end))
+        @test fieldnames(s) == [:x, :y, :z]
+    end
+end
 ```
+
+### Implementation
+
+!!! details "src/Structs.jl"
+
+    ```julia
+    #| file: src/Structs.jl
+    module Structs
+
+    using MacroTools: @capture, postwalk
+    import ..Passes: Pass, pass, no_match
+
+    <<struct-data>>
+    <<collect-struct-pass>>
+
+    end
+    ```
+
+We need to store all information on a struct definition, so that we can reconstruct
+the original expression, or a similar expression with extended fields.
 
 ```julia
 #| id: struct-data
-
 mutable struct Struct
     use_kwdef::Bool
     is_mutable::Bool
@@ -332,7 +483,13 @@ mutable struct Struct
     abstract_type::Union{Symbol,Nothing}
     fields::Vector{Union{Expr,Symbol}}
 end
+```
 
+If we have a type parameter called `T`, we want to rename it so that it
+can't clash with previously defined type parameters.
+
+```julia
+#| id: struct-data
 function mangle_type_parameters!(s::Struct, suffix::Symbol)
     s.type_parameters === nothing && return
 
@@ -341,7 +498,7 @@ function mangle_type_parameters!(s::Struct, suffix::Symbol)
 
     replace_type_par(expr) =
         postwalk(x -> x isa Symbol ? get(d, x, x) : x, expr)
-        
+
     s.fields = replace_type_par.(s.fields)
     s.type_parameters = collect(values(d))
     return s
@@ -373,7 +530,6 @@ function parse_struct(expr)
     @capture(sname, (pname_ <: abst_) | pname_)
     @capture(pname, (name_{pars__}) | name_)
 
-
     return Struct(uses_kwdef, is_mutable, name, pars, abst, fields)
 end
 
@@ -391,14 +547,69 @@ function define_struct(s::Struct)
     end
     s.use_kwdef ? :(@kwdef $sdef) : sdef
 end
+
+function Base.fieldnames(s::Struct)
+    get_fieldname(def::Symbol) = def
+    function get_fieldname(def::Expr)
+        if @capture(def, name_::type_)
+            return name
+        end
+        if @capture(def, name_::type_ = default_)
+            return name
+        end
+        error("unknown struct field expression: $(def)")
+    end
+
+    return get_fieldname.(s.fields)
+end
+```
+
+### Collecting structs
+
+```julia
+#| id: collect-struct-pass
+struct CollectStructPass <: Pass
+    items::IdDict{Symbol,Struct}
+    name::Symbol
+end
+
+function pass(p::CollectStructPass, expr)
+    s = parse_struct(expr)
+    if s === nothing
+        return no_match
+    end
+
+    mangle_type_parameters!(s, p.name)
+    if s.name in keys(p.items)
+        extend_struct!(p.items[s.name], s)
+    else
+        p.items[s.name] = s
+    end
+    return nothing
+end
 ```
 
 ## `@compose`
 
 Unfortunately now comes a big leap. We'll merge all struct definitions inside the body of a module definition with that of its parents. We must also make sure that a `struct` definition still compiles, so we have to take along `using` and `const` statements.
 
+!!! details "test/ComposeSpec.jl"
+
+    ```julia
+    #| file: test/ComposeSpec.jl
+    using ModuleMixins
+
+    <<test-compose-toplevel>>
+
+    @testset "ModuleMixins.Compose" begin
+        using ModuleMixins: @compose
+
+        <<test-compose>>
+    end
+    ```
+
 ```julia
-#| id: test-toplevel
+#| id: test-compose-toplevel
 module ComposeTest1
 using ModuleMixins
 
@@ -421,7 +632,7 @@ end
 ```
 
 ```julia
-#| id: test
+#| id: test-compose
 @testset "compose struct members" begin
     @test ComposeTest1.AB.PARENTS == [:A, :B]
     @test fieldnames(ComposeTest1.AB.S) == (:a, :b)
@@ -441,13 +652,12 @@ end
 
 ```julia
 #| id: compose
-
 struct CollectUsingPass <: Pass
     items::Vector{Expr}
 end
 
 function pass(p::CollectUsingPass, expr)
-    @capture(expr, using x__ | using mod__: x__) || return :nomatch
+    @capture(expr, using x__ | using mod__: x__) || return no_match
     push!(p.items, expr)
     return nothing
 end
@@ -457,25 +667,8 @@ struct CollectConstPass <: Pass
 end
 
 function pass(p::CollectConstPass, expr)
-    @capture(expr, const x_ = y_) || return :nomatch
+    @capture(expr, const x_ = y_) || return no_match
     push!(p.items, expr)
-    return nothing
-end
-
-struct CollectStructPass <: Pass
-    items::IdDict{Symbol,Struct}
-    name::Symbol
-end
-
-function pass(p::CollectStructPass, expr)
-    s = parse_struct(expr)
-    s === nothing && return :nomatch
-    mangle_type_parameters!(s, p.name)
-    if s.name in keys(p.items)
-        extend_struct!(p.items[s.name], s)
-    else
-        p.items[s.name] = s
-    end
     return nothing
 end
 
@@ -497,9 +690,11 @@ macro compose(mod)
     usings = CollectUsingPass([])
     consts = CollectConstPass([])
     struct_items = IdDict{Symbol, Struct}()
+    constructor_items = IdDict{Symbol, Constructor}()
 
     function mixin(expr; name=name)
         structs = CollectStructPass(struct_items, name)
+        constructors = CollectConstructorPass(constructor_items)
         parents = MixinPass([])
         pass1 = walk(parents, expr)
         mixin_tree[name] = parents.items
@@ -509,7 +704,7 @@ macro compose(mod)
             parent_expr = Core.eval(__module__, :($(p).AST))
             mixin(parent_expr; name=p)
         end
-        walk(usings + consts + structs, pass1)
+        walk(usings + consts + structs + constructors, pass1)
     end
 
     fields = CollectStructPass(IdDict{Symbol,Struct}(), name)
@@ -522,11 +717,157 @@ macro compose(mod)
         const PARENTS = [$(QuoteNode.(mixins)...)]
         const MIXIN_TREE = $(mixin_tree)
         const FIELDS = $(IdDict((n => v.fields for (n, v) in pairs(fields.items))...))
+        const CONSTRUCTORS = $(constructor_items)
         $(usings.items...)
         $(consts.items...)
         $(define_struct.(values(struct_items))...)
+        $((define_constructor(struct_items[c.return_type_name], c)
+            for c in values(constructor_items))...)
         $(clean_body...)
     end)))
+end
+```
+
+## Constructors
+
+```julia
+#| file: src/Constructors.jl
+module Constructors
+
+using MacroTools: @capture
+using .Iterators: repeated
+
+import ..Passes: Pass, pass, no_match
+import ..Structs: Struct
+
+<<constructor-pass>>
+
+end
+```
+
+Once we have several structs in place, we might want to generate one type from another. Suppose we have an `Input` struct and a `State` struct, and we want to automatically compose an `initial_state` function. We can do this if we have a function `state_field(input::Input)` returning the initial state for some field of `State`. We also may have the situation that we want to compute several fields in one go for efficiency.
+
+```julia
+@constructor function initial_state(input::Input)::State[state_var1, state_var2]
+    return (
+        state_var1 = 42,
+        state_var2 = "pangalactic gargleblaster"
+    )
+end
+```
+
+```julia
+#| file: test/ConstructorsSpec.jl
+module ConstructorTest
+    using ModuleMixins
+
+    @compose module CtA
+        struct S
+            x
+        end
+
+        @constructor make_s()::S[x] = (x = 5,)
+    end
+
+    @compose module CtB
+        @mixin CtA
+
+        struct S
+            y
+            z
+        end
+
+        @constructor function make_s()::S[y, z]
+            (y = 7, z = 9)
+        end
+    end
+end
+
+@testset "ModuleMixins.Constructors" begin
+    using .ConstructorTest: CtA, CtB
+    using ModuleMixins
+
+    @test CtA.make_s() == CtA.S(5)
+    @test CtB.make_s() == CtB.S(5, 7, 9)
+end
+```
+
+### Implementation
+
+The following defines a macro that converts that syntax into usable information to compose a larger constructor.
+
+```julia
+#| id: constructor-pass
+struct Constructor
+    name::Symbol
+    arg_names::Vector{Symbol}
+    return_type_name::Symbol
+    parts::Vector{Pair{Vector{Symbol}, Expr}}
+end
+
+function Base.:+(a::Constructor, b::Constructor)
+    @assert a.name == b.name
+    @assert a.arg_names == b.arg_names
+    @assert a.return_type_name == b.return_type_name
+    @assert isdisjoint(first.(a.parts), first(b.parts))
+
+    return Constructor(
+        a.name, a.arg_names, a.return_type_name,
+        vcat(a.parts, b.parts))
+end
+
+Base.fieldnames(c::Constructor) = vcat(first.(c.parts)...)
+
+named_tuple_keys(::Type{NamedTuple{names, types}}) where {names, types} = names
+named_tuple_keys(::Type{NamedTuple{names, <:types}}) where {names, types} = names
+arg_name(arg::Symbol) = arg
+arg_name(expr::Expr) = begin
+    @capture(expr, name_::atype_)
+    name
+end
+
+function parse_constructor(f)
+    @assert (
+        @capture(f, function name_(args__)::return_type_name_[fields__] body__ end) ||
+        @capture(f, name_(args__)::return_type_name_[fields__] = body__)
+    ) "constructor expression doesn't match short or long form function:\n $f"
+    n_args = length(args)
+    arg_names = [arg_name(a) for a in args]
+    expr = :(function ($(arg_names...),) $(body...) end)
+    return Constructor(name, arg_names, return_type_name, [fields => expr])
+end
+```
+
+We can turn this into a `Pass`, so that the `@constructor` macro gets integrated into `@compose`.
+
+```julia
+#| id: constructor-pass
+struct CollectConstructorPass <: Pass
+    items::IdDict{Symbol, Constructor}
+end
+
+function pass(p::CollectConstructorPass, expr)
+    @capture(expr, @constructor constructor_expr_) || return no_match
+    data = parse_constructor(constructor_expr)
+
+    key = data.return_type_name
+    if key in keys(p.items)
+        p.items[key] += data
+    else
+        p.items[key] = data
+    end
+
+    return nothing
+end
+
+function define_constructor(s::Struct, c::Constructor)
+    @assert s.name == c.return_type_name
+    @assert issetequal(fieldnames(s), fieldnames(c)) "constructor should construct all fields of struct, expected $(fieldnames(s)), got $(fieldnames(c))"
+    return :(function $(c.name)($(c.arg_names...),)
+        $((:(($(first(p)...),) = ($(last(p)))($(c.arg_names...),))
+           for p in c.parts)...)
+        $(c.return_type_name)($(fieldnames(s)...),)
+    end)
 end
 ```
 
@@ -539,7 +880,7 @@ The `@for_each` macro is meant for situations where you want to call a certain m
 ```
 
 ```julia
-#| id: test-toplevel
+#| id: test-compose-toplevel
 module Common
     export AbstractData
     abstract type AbstractData end
@@ -584,7 +925,7 @@ end
 ```
 
 ```julia
-#| id: test
+#| id: test-compose
 @testset "for-each" begin
     io = IOBuffer(write=true)
     data = WriterABC.Data(a = 42, b = 23)
@@ -598,7 +939,7 @@ end
 """
     substitute_top_level(var, val, mod, expr)
 
-Takes a syntax object `expr` and substitutes every occurence of 
+Takes a syntax object `expr` and substitutes every occurence of
 module `var` for `val`, only if the resulting object is actually
 present in module `mod`. The `mod` module should correspond with
 a lookup of `val` in the caller's namespace.

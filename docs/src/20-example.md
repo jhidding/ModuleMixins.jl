@@ -46,6 +46,8 @@ We'll have a time component:
         time::typeof(1.0u"s")
     end
 
+    @constructor initial_state(input)::State[time] = (time = 0.0u"s",)
+
     function step!(input::AbstractInput, state::AbstractState)
         state.time += input.t_step
     end
@@ -83,6 +85,10 @@ And a component for the spring.
         velocity::typeof(1.0u"m/s")
     end
 
+    @constructor initial_state(input)::State[position, velocity] = (
+        position = input.initial_position,
+        velocity = 0.0u"m/s")
+
     function step!(input::AbstractInput, state::AbstractState)
         delta_v = -input.spring_constant * state.position
         state.position += state.velocity * input.t_step
@@ -104,10 +110,6 @@ Now we may compose these using `@mixin`:
     function step!(input::Input, state::State)
         Spring.step!(input, state)
         Time.step!(input, state)
-    end
-
-    function initial_state(input::Input)
-        return State(0.0u"s", input.initial_position, 0.0u"m/s")
     end
 end
 ```

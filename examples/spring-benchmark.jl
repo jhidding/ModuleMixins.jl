@@ -1,10 +1,8 @@
 # ~/~ begin <<docs/src/30-blog.md#examples/spring-benchmark.jl>>[init]
-#| file: examples/spring-benchmark.jl
 using BenchmarkTools
 using ModuleMixins: @compose
 
 # ~/~ begin <<docs/src/30-blog.md#mixin-a-spring>>[init]
-#| id: mixin-a-spring
 module Common
     export AbstractInput, AbstractState, Model, run
 
@@ -12,9 +10,8 @@ module Common
     abstract type AbstractState end
 
     # ~/~ begin <<docs/src/30-blog.md#spring-run-fast>>[init]
-    #| id: spring-run-fast
     struct Model{T} end
-
+    
     function run(::Type{Model{M}}, input) where M
         state = M.init(input)
         Channel{M.State}() do ch
@@ -28,7 +25,6 @@ module Common
 end
 # ~/~ end
 # ~/~ begin <<docs/src/30-blog.md#mixin-a-spring>>[1]
-#| id: mixin-a-spring
 @compose module Time
     using Unitful
     using ..Common
@@ -52,7 +48,6 @@ end
 end
 # ~/~ end
 # ~/~ begin <<docs/src/30-blog.md#mixin-a-spring>>[2]
-#| id: mixin-a-spring
 @compose module Spring
     @mixin Time
     using Unitful
@@ -90,7 +85,6 @@ end
 end
 # ~/~ end
 # ~/~ begin <<docs/src/30-blog.md#mixin-a-spring>>[3]
-#| id: mixin-a-spring
 module LeapFrog
     using ..Common
     using ..Time
@@ -106,7 +100,6 @@ module LeapFrog
 end
 # ~/~ end
 # ~/~ begin <<docs/src/30-blog.md#mixin-a-spring>>[4]
-#| id: mixin-a-spring
 @compose module LeapFrogSpring
     @mixin Spring
     using ..Common
