@@ -1,46 +1,60 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Implementation · ModuleMixins.jl</title><meta name="title" content="Implementation · ModuleMixins.jl"/><meta property="og:title" content="Implementation · ModuleMixins.jl"/><meta property="twitter:title" content="Implementation · ModuleMixins.jl"/><meta name="description" content="Documentation for ModuleMixins.jl."/><meta property="og:description" content="Documentation for ModuleMixins.jl."/><meta property="twitter:description" content="Documentation for ModuleMixins.jl."/><meta property="og:url" content="https://jhidding.github.io/ModuleMixins.jl/50-implementation/"/><meta property="twitter:url" content="https://jhidding.github.io/ModuleMixins.jl/50-implementation/"/><link rel="canonical" href="https://jhidding.github.io/ModuleMixins.jl/50-implementation/"/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../">ModuleMixins.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">ModuleMixins</a></li><li><a class="tocitem" href="../10-introduction/">Introduction</a></li><li><a class="tocitem" href="../20-example/">Example</a></li><li><a class="tocitem" href="../30-blog/">Objects, Inheritance and Modules in Julia</a></li><li class="is-active"><a class="tocitem" href>Implementation</a><ul class="internal"><li><a class="tocitem" href="#Prelude"><span>Prelude</span></a></li><li><a class="tocitem" href="#@spec"><span><code>@spec</code></span></a></li><li><a class="tocitem" href="#Structure-of-structs"><span>Structure of structs</span></a></li><li><a class="tocitem" href="#@compose"><span><code>@compose</code></span></a></li><li><a class="tocitem" href="#For-each"><span>For-each</span></a></li></ul></li><li><a class="tocitem" href="../90-contributing/">Contributing guidelines</a></li><li><a class="tocitem" href="../91-developer/">Developer documentation</a></li><li><a class="tocitem" href="../95-reference/">Reference</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Implementation</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Implementation</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/jhidding/ModuleMixins.jl/blob/main/docs/src/50-implementation.md#" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Implementation"><a class="docs-heading-anchor" href="#Implementation">Implementation</a><a id="Implementation-1"></a><a class="docs-heading-anchor-permalink" href="#Implementation" title="Permalink"></a></h1><p>The way <code>ModuleMixins</code> is implemented, is that we start out with something relatively simple, and build out from that. This means there will be some redudant code. Macros are hard to engineer, this takes you through the entire process.</p><h2 id="Prelude"><a class="docs-heading-anchor" href="#Prelude">Prelude</a><a id="Prelude-1"></a><a class="docs-heading-anchor-permalink" href="#Prelude" title="Permalink"></a></h2><pre><code class="language-julia hljs">#| file: src/ModuleMixins.jl
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Implementation · ModuleMixins.jl</title><meta name="title" content="Implementation · ModuleMixins.jl"/><meta property="og:title" content="Implementation · ModuleMixins.jl"/><meta property="twitter:title" content="Implementation · ModuleMixins.jl"/><meta name="description" content="Documentation for ModuleMixins.jl."/><meta property="og:description" content="Documentation for ModuleMixins.jl."/><meta property="twitter:description" content="Documentation for ModuleMixins.jl."/><meta property="og:url" content="https://jhidding.github.io/ModuleMixins.jl/50-implementation/"/><meta property="twitter:url" content="https://jhidding.github.io/ModuleMixins.jl/50-implementation/"/><link rel="canonical" href="https://jhidding.github.io/ModuleMixins.jl/50-implementation/"/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../">ModuleMixins.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">ModuleMixins</a></li><li><a class="tocitem" href="../10-introduction/">Introduction</a></li><li><a class="tocitem" href="../20-example/">Example</a></li><li><a class="tocitem" href="../30-blog/">Objects, Inheritance and Modules in Julia</a></li><li class="is-active"><a class="tocitem" href>Implementation</a><ul class="internal"><li><a class="tocitem" href="#Prelude"><span>Prelude</span></a></li><li><a class="tocitem" href="#Etudes-in-Macro-Programming"><span>Etudes in Macro Programming</span></a></li><li><a class="tocitem" href="#Passes"><span>Passes</span></a></li><li><a class="tocitem" href="#Mixin-Pass"><span>Mixin Pass</span></a></li><li><a class="tocitem" href="#Structure-of-structs"><span>Structure of structs</span></a></li><li><a class="tocitem" href="#@compose"><span><code>@compose</code></span></a></li><li><a class="tocitem" href="#Constructors"><span>Constructors</span></a></li><li><a class="tocitem" href="#For-each"><span>For-each</span></a></li></ul></li><li><a class="tocitem" href="../90-contributing/">Contributing guidelines</a></li><li><a class="tocitem" href="../91-developer/">Developer documentation</a></li><li><a class="tocitem" href="../95-reference/">Reference</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Implementation</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Implementation</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/jhidding/ModuleMixins.jl/blob/main/docs/src/50-implementation.md#" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Implementation"><a class="docs-heading-anchor" href="#Implementation">Implementation</a><a id="Implementation-1"></a><a class="docs-heading-anchor-permalink" href="#Implementation" title="Permalink"></a></h1><p>The way <code>ModuleMixins</code> is implemented, is that we start out with something relatively simple, and build out from that. This means there will be some redudant code. Macros are hard to engineer, this takes you through the entire process.</p><h2 id="Prelude"><a class="docs-heading-anchor" href="#Prelude">Prelude</a><a id="Prelude-1"></a><a class="docs-heading-anchor-permalink" href="#Prelude" title="Permalink"></a></h2><pre><code class="language-julia hljs">#| file: src/ModuleMixins.jl
 module ModuleMixins
 
-using MacroTools: @capture, postwalk, prewalk
+include(&quot;Passes.jl&quot;)
+include(&quot;Spec.jl&quot;)
+include(&quot;Mixins.jl&quot;)
+include(&quot;Structs.jl&quot;)
+include(&quot;Constructors.jl&quot;)
+
+using MacroTools: @capture, postwalk
+import .Passes: Pass, pass, no_match, walk
+import .Mixins: MixinPass
+import .Structs: Struct, CollectStructPass, define_struct
+import .Constructors: Constructor, CollectConstructorPass, define_constructor
 
 export @compose, @for_each
 
-&lt;&lt;spec&gt;&gt;
-&lt;&lt;mixin&gt;&gt;
-&lt;&lt;struct-data&gt;&gt;
 &lt;&lt;compose&gt;&gt;
 &lt;&lt;for-each&gt;&gt;
 
 end</code></pre><p>To facilitate testing, we need to be able to compare syntax. We use the <code>clean</code> function to remove source information from expressions.</p><pre><code class="language-julia hljs">#| file: test/runtests.jl
 using Test
-using ModuleMixins:
-    @spec,
-    @spec_mixin,
-    @spec_using,
-    @mixin,
-    Struct,
-    parse_struct,
-    define_struct,
-    Pass,
-    @compose,
-    @for_each
-using MacroTools: prewalk, rmlines
 
-clean(expr) = prewalk(rmlines, expr)
+@testset &quot;ModuleMixins.jl&quot; begin
+    include(&quot;SpecSpec.jl&quot;)
+    include(&quot;PassesSpec.jl&quot;)
+    include(&quot;MixinsSpec.jl&quot;)
+    include(&quot;StructsSpec.jl&quot;)
+    include(&quot;ConstructorsSpec.jl&quot;)
+    include(&quot;ComposeSpec.jl&quot;)
+end</code></pre><h2 id="Etudes-in-Macro-Programming"><a class="docs-heading-anchor" href="#Etudes-in-Macro-Programming">Etudes in Macro Programming</a><a id="Etudes-in-Macro-Programming-1"></a><a class="docs-heading-anchor-permalink" href="#Etudes-in-Macro-Programming" title="Permalink"></a></h2><h3 id="@spec"><a class="docs-heading-anchor" href="#@spec"><code>@spec</code></a><a id="@spec-1"></a><a class="docs-heading-anchor-permalink" href="#@spec" title="Permalink"></a></h3><p>The <code>@spec</code> macro creates a new module, and stores its own AST inside that module.</p><details class="admonition is-details" id="src/Spec.jl-22add4f76977ba80"><summary class="admonition-header">src/Spec.jl<a class="admonition-anchor" href="#src/Spec.jl-22add4f76977ba80" title="Permalink"></a></summary><div class="admonition-body"><pre><code class="language-julia hljs">#| file: src/Spec.jl
+module Spec
 
-&lt;&lt;test-toplevel&gt;&gt;
+using MacroTools: @capture
+export @spec
 
-@testset &quot;ModuleMixins&quot; begin
-    &lt;&lt;test&gt;&gt;
-end</code></pre><h2 id="@spec"><a class="docs-heading-anchor" href="#@spec"><code>@spec</code></a><a id="@spec-1"></a><a class="docs-heading-anchor-permalink" href="#@spec" title="Permalink"></a></h2><p>The <code>@spec</code> macro creates a new module, and stores its own AST inside that module.</p><pre><code class="language-julia hljs">#| id: test-toplevel
+&lt;&lt;spec&gt;&gt;
+
+end</code></pre></div></details><p>We may test that this works using a small example.</p><details class="admonition is-details" id="test/SpecSpec.jl-c2598d2d4c3db792"><summary class="admonition-header">test/SpecSpec.jl<a class="admonition-anchor" href="#test/SpecSpec.jl-c2598d2d4c3db792" title="Permalink"></a></summary><div class="admonition-body"><pre><code class="language-julia hljs">#| file: test/SpecSpec.jl
+&lt;&lt;test-spec-toplevel&gt;&gt;
+
+@testset &quot;ModuleMixins.Spec&quot; begin
+    using MacroTools: prewalk, rmlines
+    clean(expr) = prewalk(rmlines, expr)
+
+    &lt;&lt;test-spec&gt;&gt;
+end</code></pre></div></details><pre><code class="language-julia hljs">#| id: test-spec-toplevel
+using ModuleMixins.Spec: @spec, @spec_mixin, @mixin
+
 @spec module MySpec
 const msg = &quot;hello&quot;
-end</code></pre><pre><code class="language-julia hljs">#| id: test
+end</code></pre><pre><code class="language-julia hljs">#| id: test-spec
 @testset &quot;@spec&quot; begin
     @test clean.(MySpec.AST) == clean.([:(const msg = &quot;hello&quot;)])
     @test MySpec.msg == &quot;hello&quot;
-end</code></pre><p>The <code>@spec</code> macro is used to specify the structs of a model component.</p><pre><code class="language-julia hljs">#| id: spec
+end</code></pre><p>This may seem like a silly example, but storing the AST of a module inside itself is very powerful. It means that inside macros we can always return to original expressions of other modules and devise ways of combining, composing and compiling new modules from them.</p><pre><code class="language-julia hljs">#| id: spec
 &quot;&quot;&quot;
     @spec module *name*
         *body*...
@@ -59,17 +73,17 @@ macro spec(mod)
     $(body...)
     const AST = $body
     end)))
-end</code></pre><h3 id="@spec_mixin"><a class="docs-heading-anchor" href="#@spec_mixin"><code>@spec_mixin</code></a><a id="@spec_mixin-1"></a><a class="docs-heading-anchor-permalink" href="#@spec_mixin" title="Permalink"></a></h3><p>We now add the <code>@mixin</code> syntax. This still doesn&#39;t do anything, other than storing the names of parent modules.</p><pre><code class="language-julia hljs">#| id: test-toplevel
+end</code></pre><p>Inside <code>ModuleMixins</code> we make extensive use of <code>MacroTools.@capture</code>. Preceding <code>@capture</code> with <code>@assert</code> is a quickfire way of making sure that our macro was called with the correct syntax.</p><p>When defining a new module we have to create a <strong>top-level expression</strong>, and call <code>esc</code> on the entire expression to make sure no symbols are mangled.</p><h3 id="@spec_mixin"><a class="docs-heading-anchor" href="#@spec_mixin"><code>@spec_mixin</code></a><a id="@spec_mixin-1"></a><a class="docs-heading-anchor-permalink" href="#@spec_mixin" title="Permalink"></a></h3><p>We now add the <code>@mixin</code> syntax. This still doesn&#39;t do anything, other than storing the names of parent modules.</p><pre><code class="language-julia hljs">#| id: test-spec-toplevel
 @spec_mixin module MyMixinSpecOne
 @mixin A
 end
 @spec_mixin module MyMixinSpecMany
 @mixin A, B, C
-end</code></pre><pre><code class="language-julia hljs">#| id: test
+end</code></pre><pre><code class="language-julia hljs">#| id: test-spec
 @testset &quot;@spec_mixin&quot; begin
     @test MyMixinSpecOne.PARENTS == [:A]
     @test MyMixinSpecMany.PARENTS == [:A, :B, :C]
-end</code></pre><p>Here&#39;s the <code>@mixin</code> macro:</p><pre><code class="language-julia hljs">#| id: mixin
+end</code></pre><p>Here&#39;s the <code>@mixin</code> macro:</p><pre><code class="language-julia hljs">#| id: spec
 macro mixin(deps)
     if @capture(deps, (multiple_deps__,))
         esc(:(const PARENTS = [$(QuoteNode.(multiple_deps)...)]))
@@ -90,42 +104,30 @@ macro spec_mixin(mod)
 
     const AST = $body
     end)))
-end</code></pre><h3 id="@spec_using"><a class="docs-heading-anchor" href="#@spec_using"><code>@spec_using</code></a><a id="@spec_using-1"></a><a class="docs-heading-anchor-permalink" href="#@spec_using" title="Permalink"></a></h3><p>I can&#39;t think of any usecase where a <code>@mixin A</code>, doesn&#39;t also mean <code>using ..A</code>. By replacing the <code>@mixin</code> with a <code>using</code> statement, we also no longer need to import <code>@mixin</code>. In fact, that macro becomes redundant. Also, in <code>@spec_using</code> we&#39;re allowed multiple <code>@mixin</code> statements.</p><pre><code class="language-julia hljs">#| id: test-toplevel
-@spec_using module SU_A
-const X = :hello
-export X
-end
+end</code></pre><h2 id="Passes"><a class="docs-heading-anchor" href="#Passes">Passes</a><a id="Passes-1"></a><a class="docs-heading-anchor-permalink" href="#Passes" title="Permalink"></a></h2><p>We now use the <code>prewalk</code> function (from <code>MacroTools.jl</code>) to transform expressions and collect information into searchable data structures. We make a little abstraction over the <code>prewalk</code> function, so we can compose multiple transformations in a single tree walk.</p><p>An implementation of the <code>pass</code> function should take a <code>Pass</code> object and an expression (or symbol), and return <code>no_match</code> if the expression did not match the pattern.</p><p>Types that derive from <code>Pass</code> can be added into a composite <code>CompositePass</code> using the <code>+</code> operator.</p><pre><code class="language-julia hljs">#| file: src/Passes.jl
+module Passes
 
-@spec_using module SU_B
-@mixin SU_A
-const Y = X
-end
+using MacroTools: prewalk
 
-@spec_using module SU_C
-const Z = :goodbye
-end
-
-@spec_using module SU_D
-@mixin SU_A
-@mixin SU_B, SU_C
-end</code></pre><pre><code class="language-julia hljs">#| id: test
-@testset &quot;@spec_using&quot; begin
-    @test SU_B.Y == SU_A.X
-    @test SU_B.PARENTS == [:SU_A]
-    @test SU_D.PARENTS == [:SU_A, :SU_B, :SU_C]
-    @test SU_D.SU_C.Z == :goodbye
-end</code></pre><p>We now use the <code>postwalk</code> function (from <code>MacroTools.jl</code>) to transform expressions and collect information into searchable data structures. We make a little abstraction over the <code>postwalk</code> function, so we can compose multiple transformations in a single tree walk.</p><pre><code class="language-julia hljs">#| id: test-toplevel
-struct EmptyPass &lt;: Pass
-    tag::Symbol
-end</code></pre><pre><code class="language-julia hljs">#| id: test
-@testset &quot;pass composition&quot; begin
-    a = EmptyPass(:a) + EmptyPass(:b)
-    @test a.parts[1].tag == :a
-    @test a.parts[2].tag == :b
-end</code></pre><p>A composite pass tries all of its parts in order, returning the value of the first pass that doesn&#39;t return <code>nothing</code>.</p><pre><code class="language-julia hljs">#| id: spec
+export Pass, pass, no_match, walk
 
 abstract type Pass end
 
+struct NoMatch end
+
+const no_match = NoMatch()
+
+&quot;&quot;&quot;
+    pass(x::Pass, expr)
+
+Interface. An implementation of the `pass` function should take a `Pass` object
+and an expression (or symbol), and return `no_match` if the expression did not
+match the pattern.
+
+You can use the given `Pass` object to store information about this pass, return
+syntax that should replace the current expression, or `nothing` if it should be
+removed.
+&quot;&quot;&quot;
 function pass(x::Pass, expr)
     error(&quot;Can&#39;t call `pass` on abstract `Pass`.&quot;)
 end
@@ -138,29 +140,67 @@ Base.:+(a::CompositePass...) = CompositePass(splat(vcat)(getfield.(a, :parts)))
 Base.convert(::Type{CompositePass}, a::Pass) = CompositePass([a])
 Base.:+(a::Pass...) = splat(+)(convert.(CompositePass, a))
 
+&quot;&quot;&quot;
+    pass(x::CompositePass, expr)
+
+Tries all passes in a composite pass in order, and returns with the first
+that succeeds (i.e. doesn&#39;t return `no_match`). You may create a `CompositePass`
+by adding passes with the `+` operator.
+&quot;&quot;&quot;
 function pass(cp::CompositePass, expr)
     for p in cp.parts
         result = pass(p, expr)
-        if result !== :nomatch
+        if result !== no_match
             return result
         end
     end
-    return :nomatch
+    return no_match
 end
 
+&quot;&quot;&quot;
+    walk(x::Pass, expr_list)
+
+Calls `MacroTools.prewalk` with the given `Pass`. If `no_match` is returned,
+the expression stays untouched.
+&quot;&quot;&quot;
 function walk(x::Pass, expr_list)
     function patch(expr)
         result = pass(x, expr)
-        result === :nomatch ? expr : result
+        result === no_match ? expr : result
     end
     prewalk.(patch, expr_list)
-end</code></pre><pre><code class="language-julia hljs">#| id: spec
+end
+
+end</code></pre><p>A composite pass tries all of its parts in order, returning the value of the first pass that doesn&#39;t return <code>no_match</code>.</p><h3 id="Tests"><a class="docs-heading-anchor" href="#Tests">Tests</a><a id="Tests-1"></a><a class="docs-heading-anchor-permalink" href="#Tests" title="Permalink"></a></h3><details class="admonition is-details" id="test/PassesSpec.jl-bfdc63852972335b"><summary class="admonition-header">test/PassesSpec.jl<a class="admonition-anchor" href="#test/PassesSpec.jl-bfdc63852972335b" title="Permalink"></a></summary><div class="admonition-body"><pre><code class="language-julia hljs">#| file: test/PassesSpec.jl
+@testset &quot;ModuleMixins.Passes&quot; begin
+    using ModuleMixins.Passes: Passes, Pass, no_match, pass, walk
+
+    &lt;&lt;test-passes&gt;&gt;
+end</code></pre></div></details><p>We define a small pass that replaces some symbol with <code>blip!</code>.</p><pre><code class="language-julia hljs">#| id: test-passes
+struct BlipPass &lt;: Pass
+    tag::Symbol
+end
+
+Passes.pass(p::BlipPass, expr) = expr == p.tag ? :blip! : no_match</code></pre><p>We can test that this works on small tuple expression.</p><pre><code class="language-julia hljs">#| id: test-passes
+@testset &quot;pass replacement&quot; begin
+    @test walk(BlipPass(:a), [:(a, b)])[1] == :(blip!, b)
+    @test walk(BlipPass(:b), [:(a, b)])[1] == :(a, blip!)
+end</code></pre><p>And then that it composes to replace both elements in the tuple.</p><pre><code class="language-julia hljs">#| id: test-passes
+@testset &quot;pass composition&quot; begin
+    a = BlipPass(:a) + BlipPass(:b)
+    @test walk(a, [:(a, b)])[1] == :(blip!, blip!)
+end</code></pre><h2 id="Mixin-Pass"><a class="docs-heading-anchor" href="#Mixin-Pass">Mixin Pass</a><a id="Mixin-Pass-1"></a><a class="docs-heading-anchor-permalink" href="#Mixin-Pass" title="Permalink"></a></h2><p>The <code>MixinPass</code> now filters for appearances of the <code>@mixin &lt;Component&gt;</code> syntax and transforms them into <code>using ..&lt;Component&gt;</code>. This assumes that the symbols used are visible in the parent module.</p><pre><code class="language-julia hljs">#| file: src/Mixins.jl
+module Mixins
+
+using MacroTools: @capture
+import ..Passes: Pass, pass, no_match, walk
+
 @kwdef struct MixinPass &lt;: Pass
     items::Vector{Symbol}
 end
 
 function pass(m::MixinPass, expr)
-    @capture(expr, @mixin deps_) || return :nomatch
+    @capture(expr, @mixin deps_) || return no_match
 
     if @capture(deps, (multiple_deps__,))
         append!(m.items, multiple_deps)
@@ -186,7 +226,45 @@ macro spec_using(mod)
         const AST = $body
         const PARENTS = [$(QuoteNode.(parents.items)...)]
     end)))
-end</code></pre><h2 id="Structure-of-structs"><a class="docs-heading-anchor" href="#Structure-of-structs">Structure of structs</a><a id="Structure-of-structs-1"></a><a class="docs-heading-anchor-permalink" href="#Structure-of-structs" title="Permalink"></a></h2><p>We&#39;ll convert <code>struct</code> syntax into collectable data, then convert that back into structs again. We&#39;ll support several patterns:</p><pre><code class="language-julia hljs">#| id: test
+end
+
+end</code></pre><h3 id="Test:-@spec_using"><a class="docs-heading-anchor" href="#Test:-@spec_using">Test: <code>@spec_using</code></a><a id="Test:-@spec_using-1"></a><a class="docs-heading-anchor-permalink" href="#Test:-@spec_using" title="Permalink"></a></h3><p>I can&#39;t think of any usecase where a <code>@mixin A</code>, doesn&#39;t also mean <code>using ..A</code>. By replacing the <code>@mixin</code> with a <code>using</code> statement, we also no longer need to import <code>@mixin</code>. In fact, that macro becomes redundant. Also, in <code>@spec_using</code> we&#39;re allowed multiple <code>@mixin</code> statements.</p><pre><code class="language-julia hljs">#| file: test/MixinsSpec.jl
+using ModuleMixins.Mixins: @spec_using
+
+@testset &quot;ModuleMixins.Mixins&quot; begin
+    @spec_using module SU_A
+    const X = :hello
+    export X
+    end
+
+    @spec_using module SU_B
+    @mixin SU_A
+    const Y = X
+    end
+
+    @spec_using module SU_C
+    const Z = :goodbye
+    end
+
+    @spec_using module SU_D
+    @mixin SU_A
+    @mixin SU_B, SU_C
+    end
+
+    @testset &quot;@spec_using&quot; begin
+        @test SU_B.Y == SU_A.X
+        @test SU_B.PARENTS == [:SU_A]
+        @test SU_D.PARENTS == [:SU_A, :SU_B, :SU_C]
+        @test SU_D.SU_C.Z == :goodbye
+    end
+end</code></pre><h2 id="Structure-of-structs"><a class="docs-heading-anchor" href="#Structure-of-structs">Structure of structs</a><a id="Structure-of-structs-1"></a><a class="docs-heading-anchor-permalink" href="#Structure-of-structs" title="Permalink"></a></h2><p>We&#39;ll convert <code>struct</code> syntax into collectable data, then convert that back into structs again. We&#39;ll support several patterns:</p><details class="admonition is-details" id="test/StructsSpec.jl-37b96f6bf29cb264"><summary class="admonition-header">test/StructsSpec.jl<a class="admonition-anchor" href="#test/StructsSpec.jl-37b96f6bf29cb264" title="Permalink"></a></summary><div class="admonition-body"><pre><code class="language-julia hljs">#| file: test/StructsSpec.jl
+@testset &quot;ModuleMixins.Structs&quot; begin
+    using ModuleMixins.Structs: Struct, parse_struct, define_struct, mangle_type_parameters!
+    using MacroTools: prewalk, rmlines
+    clean(expr) = prewalk(rmlines, expr)
+
+    &lt;&lt;test-structs&gt;&gt;
+end</code></pre></div></details><pre><code class="language-julia hljs">#| id: test-structs
 cases = Dict(
     :(struct A x end) =&gt; Struct(false, false, :A, nothing, nothing, [:x]),
     :(mutable struct A x end) =&gt; Struct(false, true, :A, nothing, nothing, [:x]),
@@ -200,14 +278,13 @@ for (k, v) in pairs(cases)
         @test clean(define_struct(parse_struct(k))) == clean(k)
         @test clean(define_struct(v)) == clean(k)
     end
-end</code></pre><p>Each of these can have either just a <code>Symbol</code> for a name, or a <code>A &lt;: B</code> expression. This is a bit cumbersome, but we&#39;ll have to deal with all of these cases.</p><pre><code class="language-julia hljs">#| id: test
+end</code></pre><p>Each of these can have either just a <code>Symbol</code> for a name, or a <code>A &lt;: B</code> expression. This is a bit cumbersome, but we&#39;ll have to deal with all of these cases.</p><pre><code class="language-julia hljs">#| id: test-structs
 @testset &quot;Struct mangling abstracts&quot; begin
     @test parse_struct(:(struct A &lt;: B x end)).abstract_type == :B
     @test parse_struct(:(mutable struct A &lt;: B x end)).abstract_type == :B
 end
 
 @testset &quot;Mangling type arguments&quot; begin
-    using ModuleMixins: mangle_type_parameters!
     let s = parse_struct(:(struct S{T} x::T end))
         @test s.type_parameters == [:T]
         mangle_type_parameters!(s, :A)
@@ -218,8 +295,22 @@ end
         mangle_type_parameters!(s, :A)
         @test clean(define_struct(s)) == clean(:(struct S{_T_A} x::Vector{_T_A} = [] end))
     end
-end</code></pre><pre><code class="language-julia hljs">#| id: struct-data
+end
 
+@testset &quot;Getting fieldnames&quot; begin
+    let s = parse_struct(:(struct S x; y; z end))
+        @test fieldnames(s) == [:x, :y, :z]
+    end
+end</code></pre><h3 id="Implementation-2"><a class="docs-heading-anchor" href="#Implementation-2">Implementation</a><a class="docs-heading-anchor-permalink" href="#Implementation-2" title="Permalink"></a></h3><details class="admonition is-details" id="src/Structs.jl-3afb42ed6019c6d5"><summary class="admonition-header">src/Structs.jl<a class="admonition-anchor" href="#src/Structs.jl-3afb42ed6019c6d5" title="Permalink"></a></summary><div class="admonition-body"><pre><code class="language-julia hljs">#| file: src/Structs.jl
+module Structs
+
+using MacroTools: @capture, postwalk
+import ..Passes: Pass, pass, no_match
+
+&lt;&lt;struct-data&gt;&gt;
+&lt;&lt;collect-struct-pass&gt;&gt;
+
+end</code></pre></div></details><p>We need to store all information on a struct definition, so that we can reconstruct the original expression, or a similar expression with extended fields.</p><pre><code class="language-julia hljs">#| id: struct-data
 mutable struct Struct
     use_kwdef::Bool
     is_mutable::Bool
@@ -227,8 +318,7 @@ mutable struct Struct
     type_parameters::Union{Vector{Symbol},Nothing}
     abstract_type::Union{Symbol,Nothing}
     fields::Vector{Union{Expr,Symbol}}
-end
-
+end</code></pre><p>If we have a type parameter called <code>T</code>, we want to rename it so that it can&#39;t clash with previously defined type parameters.</p><pre><code class="language-julia hljs">#| id: struct-data
 function mangle_type_parameters!(s::Struct, suffix::Symbol)
     s.type_parameters === nothing &amp;&amp; return
 
@@ -237,7 +327,7 @@ function mangle_type_parameters!(s::Struct, suffix::Symbol)
 
     replace_type_par(expr) =
         postwalk(x -&gt; x isa Symbol ? get(d, x, x) : x, expr)
-        
+
     s.fields = replace_type_par.(s.fields)
     s.type_parameters = collect(values(d))
     return s
@@ -269,7 +359,6 @@ function parse_struct(expr)
     @capture(sname, (pname_ &lt;: abst_) | pname_)
     @capture(pname, (name_{pars__}) | name_)
 
-
     return Struct(uses_kwdef, is_mutable, name, pars, abst, fields)
 end
 
@@ -286,7 +375,50 @@ function define_struct(s::Struct)
         end)
     end
     s.use_kwdef ? :(@kwdef $sdef) : sdef
-end</code></pre><h2 id="@compose"><a class="docs-heading-anchor" href="#@compose"><code>@compose</code></a><a id="@compose-1"></a><a class="docs-heading-anchor-permalink" href="#@compose" title="Permalink"></a></h2><p>Unfortunately now comes a big leap. We&#39;ll merge all struct definitions inside the body of a module definition with that of its parents. We must also make sure that a <code>struct</code> definition still compiles, so we have to take along <code>using</code> and <code>const</code> statements.</p><pre><code class="language-julia hljs">#| id: test-toplevel
+end
+
+function Base.fieldnames(s::Struct)
+    get_fieldname(def::Symbol) = def
+    function get_fieldname(def::Expr)
+        if @capture(def, name_::type_)
+            return name
+        end
+        if @capture(def, name_::type_ = default_)
+            return name
+        end
+        error(&quot;unknown struct field expression: $(def)&quot;)
+    end
+
+    return get_fieldname.(s.fields)
+end</code></pre><h3 id="Collecting-structs"><a class="docs-heading-anchor" href="#Collecting-structs">Collecting structs</a><a id="Collecting-structs-1"></a><a class="docs-heading-anchor-permalink" href="#Collecting-structs" title="Permalink"></a></h3><pre><code class="language-julia hljs">#| id: collect-struct-pass
+struct CollectStructPass &lt;: Pass
+    items::IdDict{Symbol,Struct}
+    name::Symbol
+end
+
+function pass(p::CollectStructPass, expr)
+    s = parse_struct(expr)
+    if s === nothing
+        return no_match
+    end
+
+    mangle_type_parameters!(s, p.name)
+    if s.name in keys(p.items)
+        extend_struct!(p.items[s.name], s)
+    else
+        p.items[s.name] = s
+    end
+    return nothing
+end</code></pre><h2 id="@compose"><a class="docs-heading-anchor" href="#@compose"><code>@compose</code></a><a id="@compose-1"></a><a class="docs-heading-anchor-permalink" href="#@compose" title="Permalink"></a></h2><p>Unfortunately now comes a big leap. We&#39;ll merge all struct definitions inside the body of a module definition with that of its parents. We must also make sure that a <code>struct</code> definition still compiles, so we have to take along <code>using</code> and <code>const</code> statements.</p><details class="admonition is-details" id="test/ComposeSpec.jl-d35e101906932094"><summary class="admonition-header">test/ComposeSpec.jl<a class="admonition-anchor" href="#test/ComposeSpec.jl-d35e101906932094" title="Permalink"></a></summary><div class="admonition-body"><pre><code class="language-julia hljs">#| file: test/ComposeSpec.jl
+using ModuleMixins
+
+&lt;&lt;test-compose-toplevel&gt;&gt;
+
+@testset &quot;ModuleMixins.Compose&quot; begin
+    using ModuleMixins: @compose
+
+    &lt;&lt;test-compose&gt;&gt;
+end</code></pre></div></details><pre><code class="language-julia hljs">#| id: test-compose-toplevel
 module ComposeTest1
 using ModuleMixins
 
@@ -305,7 +437,7 @@ end
 @compose module AB
     @mixin A, B
 end
-end</code></pre><pre><code class="language-julia hljs">#| id: test
+end</code></pre><pre><code class="language-julia hljs">#| id: test-compose
 @testset &quot;compose struct members&quot; begin
     @test ComposeTest1.AB.PARENTS == [:A, :B]
     @test fieldnames(ComposeTest1.AB.S) == (:a, :b)
@@ -321,13 +453,12 @@ end
 @testset &quot;composed struct has type parameter&quot; begin
     @test ComposeTest1.AB.S{Float64}(1, 2).b isa Float64
 end</code></pre><pre><code class="language-julia hljs">#| id: compose
-
 struct CollectUsingPass &lt;: Pass
     items::Vector{Expr}
 end
 
 function pass(p::CollectUsingPass, expr)
-    @capture(expr, using x__ | using mod__: x__) || return :nomatch
+    @capture(expr, using x__ | using mod__: x__) || return no_match
     push!(p.items, expr)
     return nothing
 end
@@ -337,25 +468,8 @@ struct CollectConstPass &lt;: Pass
 end
 
 function pass(p::CollectConstPass, expr)
-    @capture(expr, const x_ = y_) || return :nomatch
+    @capture(expr, const x_ = y_) || return no_match
     push!(p.items, expr)
-    return nothing
-end
-
-struct CollectStructPass &lt;: Pass
-    items::IdDict{Symbol,Struct}
-    name::Symbol
-end
-
-function pass(p::CollectStructPass, expr)
-    s = parse_struct(expr)
-    s === nothing &amp;&amp; return :nomatch
-    mangle_type_parameters!(s, p.name)
-    if s.name in keys(p.items)
-        extend_struct!(p.items[s.name], s)
-    else
-        p.items[s.name] = s
-    end
     return nothing
 end
 
@@ -377,9 +491,11 @@ macro compose(mod)
     usings = CollectUsingPass([])
     consts = CollectConstPass([])
     struct_items = IdDict{Symbol, Struct}()
+    constructor_items = IdDict{Symbol, Constructor}()
 
     function mixin(expr; name=name)
         structs = CollectStructPass(struct_items, name)
+        constructors = CollectConstructorPass(constructor_items)
         parents = MixinPass([])
         pass1 = walk(parents, expr)
         mixin_tree[name] = parents.items
@@ -389,7 +505,7 @@ macro compose(mod)
             parent_expr = Core.eval(__module__, :($(p).AST))
             mixin(parent_expr; name=p)
         end
-        walk(usings + consts + structs, pass1)
+        walk(usings + consts + structs + constructors, pass1)
     end
 
     fields = CollectStructPass(IdDict{Symbol,Struct}(), name)
@@ -402,12 +518,128 @@ macro compose(mod)
         const PARENTS = [$(QuoteNode.(mixins)...)]
         const MIXIN_TREE = $(mixin_tree)
         const FIELDS = $(IdDict((n =&gt; v.fields for (n, v) in pairs(fields.items))...))
+        const CONSTRUCTORS = $(constructor_items)
         $(usings.items...)
         $(consts.items...)
         $(define_struct.(values(struct_items))...)
+        $((define_constructor(struct_items[c.return_type_name], c)
+            for c in values(constructor_items))...)
         $(clean_body...)
     end)))
-end</code></pre><h2 id="For-each"><a class="docs-heading-anchor" href="#For-each">For-each</a><a id="For-each-1"></a><a class="docs-heading-anchor-permalink" href="#For-each" title="Permalink"></a></h2><p>The <code>@for_each</code> macro is meant for situations where you want to call a certain member function for each module that has it defined. Our use case: we have several components that need to write different bits of information to an output file. Each component defines a <code>write(io, data)</code> method. In our composed model, we can now call:</p><pre><code class="language-julia hljs">@for_each(P-&gt;P.write(io, data), PARENTS)</code></pre><pre><code class="language-julia hljs">#| id: test-toplevel
+end</code></pre><h2 id="Constructors"><a class="docs-heading-anchor" href="#Constructors">Constructors</a><a id="Constructors-1"></a><a class="docs-heading-anchor-permalink" href="#Constructors" title="Permalink"></a></h2><pre><code class="language-julia hljs">#| file: src/Constructors.jl
+module Constructors
+
+using MacroTools: @capture
+using .Iterators: repeated
+
+import ..Passes: Pass, pass, no_match
+import ..Structs: Struct
+
+&lt;&lt;constructor-pass&gt;&gt;
+
+end</code></pre><p>Once we have several structs in place, we might want to generate one type from another. Suppose we have an <code>Input</code> struct and a <code>State</code> struct, and we want to automatically compose an <code>initial_state</code> function. We can do this if we have a function <code>state_field(input::Input)</code> returning the initial state for some field of <code>State</code>. We also may have the situation that we want to compute several fields in one go for efficiency.</p><pre><code class="language-julia hljs">@constructor function initial_state(input::Input)::State[state_var1, state_var2]
+    return (
+        state_var1 = 42,
+        state_var2 = &quot;pangalactic gargleblaster&quot;
+    )
+end</code></pre><pre><code class="language-julia hljs">#| file: test/ConstructorsSpec.jl
+module ConstructorTest
+    using ModuleMixins
+
+    @compose module CtA
+        struct S
+            x
+        end
+
+        @constructor make_s()::S[x] = (x = 5,)
+    end
+
+    @compose module CtB
+        @mixin CtA
+
+        struct S
+            y
+            z
+        end
+
+        @constructor function make_s()::S[y, z]
+            (y = 7, z = 9)
+        end
+    end
+end
+
+@testset &quot;ModuleMixins.Constructors&quot; begin
+    using .ConstructorTest: CtA, CtB
+    using ModuleMixins
+
+    @test CtA.make_s() == CtA.S(5)
+    @test CtB.make_s() == CtB.S(5, 7, 9)
+end</code></pre><h3 id="Implementation-3"><a class="docs-heading-anchor" href="#Implementation-3">Implementation</a><a class="docs-heading-anchor-permalink" href="#Implementation-3" title="Permalink"></a></h3><p>The following defines a macro that converts that syntax into usable information to compose a larger constructor.</p><pre><code class="language-julia hljs">#| id: constructor-pass
+struct Constructor
+    name::Symbol
+    arg_names::Vector{Symbol}
+    return_type_name::Symbol
+    parts::Vector{Pair{Vector{Symbol}, Expr}}
+end
+
+function Base.:+(a::Constructor, b::Constructor)
+    @assert a.name == b.name
+    @assert a.arg_names == b.arg_names
+    @assert a.return_type_name == b.return_type_name
+    @assert isdisjoint(first.(a.parts), first(b.parts))
+
+    return Constructor(
+        a.name, a.arg_names, a.return_type_name,
+        vcat(a.parts, b.parts))
+end
+
+Base.fieldnames(c::Constructor) = vcat(first.(c.parts)...)
+
+named_tuple_keys(::Type{NamedTuple{names, types}}) where {names, types} = names
+named_tuple_keys(::Type{NamedTuple{names, &lt;:types}}) where {names, types} = names
+arg_name(arg::Symbol) = arg
+arg_name(expr::Expr) = begin
+    @capture(expr, name_::atype_)
+    name
+end
+
+function parse_constructor(f)
+    @assert (
+        @capture(f, function name_(args__)::return_type_name_[fields__] body__ end) ||
+        @capture(f, name_(args__)::return_type_name_[fields__] = body__)
+    ) &quot;constructor expression doesn&#39;t match short or long form function:\n $f&quot;
+    n_args = length(args)
+    arg_names = [arg_name(a) for a in args]
+    expr = :(function ($(arg_names...),) $(body...) end)
+    return Constructor(name, arg_names, return_type_name, [fields =&gt; expr])
+end</code></pre><p>We can turn this into a <code>Pass</code>, so that the <code>@constructor</code> macro gets integrated into <code>@compose</code>.</p><pre><code class="language-julia hljs">#| id: constructor-pass
+struct CollectConstructorPass &lt;: Pass
+    items::IdDict{Symbol, Constructor}
+end
+
+function pass(p::CollectConstructorPass, expr)
+    @capture(expr, @constructor constructor_expr_) || return no_match
+    data = parse_constructor(constructor_expr)
+
+    key = data.return_type_name
+    if key in keys(p.items)
+        p.items[key] += data
+    else
+        p.items[key] = data
+    end
+
+    return nothing
+end
+
+function define_constructor(s::Struct, c::Constructor)
+    @assert s.name == c.return_type_name
+    @assert issetequal(fieldnames(s), fieldnames(c)) &quot;constructor should construct all fields of struct, expected $(fieldnames(s)), got $(fieldnames(c))&quot;
+    return :(function $(c.name)($(c.arg_names...),)
+        $((:(($(first(p)...),) = ($(last(p)))($(c.arg_names...),))
+           for p in c.parts)...)
+        $(c.return_type_name)($(fieldnames(s)...),)
+    end)
+end</code></pre><h2 id="For-each"><a class="docs-heading-anchor" href="#For-each">For-each</a><a id="For-each-1"></a><a class="docs-heading-anchor-permalink" href="#For-each" title="Permalink"></a></h2><p>The <code>@for_each</code> macro is meant for situations where you want to call a certain member function for each module that has it defined. Our use case: we have several components that need to write different bits of information to an output file. Each component defines a <code>write(io, data)</code> method. In our composed model, we can now call:</p><pre><code class="language-julia hljs">@for_each(P-&gt;P.write(io, data), PARENTS)</code></pre><pre><code class="language-julia hljs">#| id: test-compose-toplevel
 module Common
     export AbstractData
     abstract type AbstractData end
@@ -448,7 +680,7 @@ end
     function write(io::IO, data::AbstractData)
         @for_each(P-&gt;P.write(io, data), PARENTS)
     end
-end</code></pre><pre><code class="language-julia hljs">#| id: test
+end</code></pre><pre><code class="language-julia hljs">#| id: test-compose
 @testset &quot;for-each&quot; begin
     io = IOBuffer(write=true)
     data = WriterABC.Data(a = 42, b = 23)
@@ -458,7 +690,7 @@ end</code></pre><pre><code class="language-julia hljs">#| id: for-each
 &quot;&quot;&quot;
     substitute_top_level(var, val, mod, expr)
 
-Takes a syntax object `expr` and substitutes every occurence of 
+Takes a syntax object `expr` and substitutes every occurence of
 module `var` for `val`, only if the resulting object is actually
 present in module `mod`. The `mod` module should correspond with
 a lookup of `val` in the caller&#39;s namespace.
@@ -501,4 +733,4 @@ mermaid.initialize({
     startOnLoad: true,
     theme: "neutral"
 });
-</script></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../30-blog/">« Objects, Inheritance and Modules in Julia</a><a class="docs-footer-nextpage" href="../90-contributing/">Contributing guidelines »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Tuesday 31 March 2026 10:51">Tuesday 31 March 2026</span>. Using Julia version 1.10.11.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+</script></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../30-blog/">« Objects, Inheritance and Modules in Julia</a><a class="docs-footer-nextpage" href="../90-contributing/">Contributing guidelines »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Tuesday 31 March 2026 10:56">Tuesday 31 March 2026</span>. Using Julia version 1.10.11.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
