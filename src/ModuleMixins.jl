@@ -140,9 +140,9 @@ macro compose(mod)
         $(usings.items...)
         $(consts.items...)
         $(define_struct.(values(struct_items))...)
+        $(clean_body...)
         $((define_constructor(struct_items[c.return_type_name], c)
             for c in values(constructor_items))...)
-        $(clean_body...)
     end)))
 end
 # ~/~ end
