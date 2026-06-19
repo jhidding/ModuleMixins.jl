@@ -9,11 +9,6 @@ dependencies = [
     "entangled-cli"
 ]
 
-[tool.uv]
-
-[tool.uv.sources]
-entangled-cli = { git = "https://github.com/entangled/entangled.py" }
-
 [tool.brei]
 include = [".entangled/tasks.json"]
 

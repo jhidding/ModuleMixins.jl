@@ -4,11 +4,11 @@ Julia is an amazing programming language that finds its use mainly in the hands 
 
 ## The JIT compiler
 
-Julia aims to be both user-friendly and fast to execute. To achieve this, we get the wonderful mix of a dynamically typed language that is compiled to machine instructions, just-in-time (JIT). This works as follows: when a function is called we know the types of the arguments (the type signature) that are given as input, and the compiler generates optimized code for that specific type signature. When the function is called again with the same signature, the compiled version is reused from cache.
+Julia aims to be both user-friendly and fast to execute. To achieve this, we get the wonderful mix of a dynamically typed language that is compiled to machine instructions, just-in-time (JIT). This works as follows: when a function is called, we know the types of the arguments (the type signature) that are given as input, and the compiler generates optimized code for that specific type signature. When the function is called again with the same signature, the compiled version is reused from cache.
 
 ### Multiple dispatch
 
-Since the type signature is such an integral part of the execution model, there is a nice trick we can play: multiple dispatch. We can redefine the same method for many different type signatures (similar to function overloading in C++). For instance, the addition operator has (as of Julia 1.10) 189 method implementations.
+Since the type signature is such an integral part of the execution model, there is a nice trick we can play: multiple dispatch. We can redefine the same method for many different type signatures (similar to function overloading in C++). For instance, the addition operator has (as of Julia 1.10) 189 method implementations. The cute thing is that multiple dispatch emerged directly from the choice of having a dynamically typed JIT-compiled language. The developers of the Julia language decided to go all-in on this emergent aspect of the language and embrace it as an important means of abstraction.
 
 ### Multiple dispatch supersedes objects
 
@@ -28,36 +28,13 @@ In Julia we can achieve all these goals with multiple dispatch, except inheritan
 
 ## Functions, Methods, Interfaces
 
-Ok, now we know: Julia doesn't have classes. How do we then organize our code? What are the means of abstraction? A common pattern is to define methods around types with similar utility. Suppose we want to write our own collection type, say a circular buffer that overwrites itself, only remembering the last $n$ items that were added.
-
-```julia
-mutable struct CircularBuffer{T}
-    content::Vector{T}
-    endloc::Int
-    length::Int
-end
-
-CircularBuffer{T}(size::Int) where T =
-    CircularBuffer{T}(Vector{T}(undef, size), 1, 0)
-```
-
-If we want `CircularBuffer` to behave like other collections in Julia, we need to define some methods.
-
-```julia
-Base.isempty(b::CircularBuffer{T}) where T = b.length == 0
-
-function Base.empty!(b::CircularBuffer{T}) where T
-    b.length = 0
-    b.endloc = 1
-end
-
-Base.length(b::CircularBuffer{T}) where T = b.length
-Base.checked_length(b::CircularBuffer{T}) where T = b.length
-```
+Ok, now we know: Julia doesn't have classes. How do we then organize our code? What are the means of abstraction? A common pattern is to define methods around types with similar utility.
 
 Here we see that we can make methods that are in the standard library operate on our own custom types.
 
-The weakness in this approach is that none of this is checked at compile time.
+The weakness in this approach is that none of this is checked at compile time. Also, this mechanism is sometimes abused, where people overload a single function from `Base`, just because it seems nice. Often this practice will lead to less readable code. Always be aware that functions inside `Base` are often part of a larger interface, an unspoken contract with the developer. Julia would become a much nicer language if there was a way to enforce such a contract.
+
+For instance, if you implement the `+` operator on an object, you should really think: does my operator commute? Can I define a `zero(::Type{T})` along with it? If your operation does not commute, it may be better to implement `*` and `one` instead. Or, if there is no identity element, implement your own function and give it a good name.
 
 ## Composition over Inheritance
 

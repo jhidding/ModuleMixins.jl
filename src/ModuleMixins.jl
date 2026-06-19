@@ -6,6 +6,7 @@ include("Spec.jl")
 include("Mixins.jl")
 include("Structs.jl")
 include("Constructors.jl")
+include("Lambda.jl")
 
 using MacroTools: @capture, postwalk
 import .Passes: Pass, pass, no_match, walk

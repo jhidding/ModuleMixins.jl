@@ -1,4 +1,4 @@
-# ~/~ begin <<docs/src/50-implementation.md#src/Passes.jl>>[init]
+# ~/~ begin <<docs/src/45-passes.md#src/Passes.jl>>[init]
 module Passes
 
 using MacroTools: prewalk

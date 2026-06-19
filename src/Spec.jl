@@ -1,10 +1,10 @@
-# ~/~ begin <<docs/src/50-implementation.md#src/Spec.jl>>[init]
+# ~/~ begin <<docs/src/40-studies.md#src/Spec.jl>>[init]
 module Spec
 
 using MacroTools: @capture
 export @spec
 
-# ~/~ begin <<docs/src/50-implementation.md#spec>>[init]
+# ~/~ begin <<docs/src/40-studies.md#spec>>[init]
 """
     @spec module *name*
         *body*...
@@ -25,7 +25,7 @@ macro spec(mod)
     end)))
 end
 # ~/~ end
-# ~/~ begin <<docs/src/50-implementation.md#spec>>[1]
+# ~/~ begin <<docs/src/40-studies.md#spec>>[1]
 macro mixin(deps)
     if @capture(deps, (multiple_deps__,))
         esc(:(const PARENTS = [$(QuoteNode.(multiple_deps)...)]))
@@ -34,7 +34,7 @@ macro mixin(deps)
     end
 end
 # ~/~ end
-# ~/~ begin <<docs/src/50-implementation.md#spec>>[2]
+# ~/~ begin <<docs/src/40-studies.md#spec>>[2]
 
 macro spec_mixin(mod)
     @assert @capture(mod, module name_
