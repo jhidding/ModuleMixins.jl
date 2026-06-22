@@ -11,13 +11,14 @@ include("Spec.jl")
 include("Mixins.jl")
 include("Structs.jl")
 include("Constructors.jl")
-include("Lambda.jl")
+include("Templates.jl")
 
 using MacroTools: @capture, postwalk
 import .Passes: Pass, pass, no_match, walk
 import .Mixins: MixinPass
 import .Structs: Struct, CollectStructPass, define_struct
 import .Constructors: Constructor, CollectConstructorPass, define_constructor
+import .Templates: make_parameters, ModuleTemplate
 
 export @compose, @for_each
 
@@ -35,6 +36,7 @@ using Test
 
 @testset "ModuleMixins.jl" begin
     include("SpecSpec.jl")
+    include("TemplatesSpec.jl")
     include("PassesSpec.jl")
     include("MixinsSpec.jl")
     include("StructsSpec.jl")
@@ -52,16 +54,55 @@ module Mixins
 
 using MacroTools: @capture
 import ..Passes: Pass, pass, no_match, walk
+using ..Templates: Argument, make_argument, bind
 
-@kwdef struct MixinPass <: Pass
-    items::Vector{Symbol}
+struct MixinModule
+    name::Symbol
 end
 
-function pass(m::MixinPass, expr)
+struct MixinTemplate
+    name::Symbol
+    arguments::Vector{Any}
+end
+
+function as_expression(mod, target::MixinModule)
+    return :(using ..$(target.name))
+end
+
+function as_expression(mod, target::MixinTemplate)
+    template = getfield(mod, target.name)
+    arguments = target.arguments |> make_argument(mod)
+    bound_vars = bind(template.parameters, arguments)
+    return :(begin
+        @compose module $(target.name)
+            $(as_expression.(bound_vars)...)
+            $(template.body...)
+        end
+
+        using .$(target.name)
+    end)
+end
+
+function parse_mixin_arg(expr)
+    if @capture(expr, name_{raw_arguments__})
+        return MixinTemplate(name, raw_arguments)
+    elseif expr isa Symbol
+        return MixinModule(expr)
+    end
+    error("illegal mixin target: $(expr)")
+end
+
+@kwdef struct MixinPass <: Pass
+    items::Vector{MixinTarget}
+end
+
+function pass(m::MixinPass, mod, expr)
     @capture(expr, @mixin deps_) || return no_match
 
     if @capture(deps, (multiple_deps__,))
-        append!(m.items, multiple_deps)
+        targets = multiple_deps .|> parse_mixin_arg(mod)
+        append!(m.items, targets)
+        if is_template_target(
         :(
             begin
                 $([:(using ..$d) for d in multiple_deps]...)
@@ -421,6 +462,8 @@ merged with those of the same name in `Parents`.
 macro compose(mod)
     @assert @capture(mod, module name_ body__ end)
 
+    <<catch-template-definition>>
+
     mixins = Symbol[]
     mixin_tree = IdDict{Symbol, Vector{Symbol}}()
     parents = MixinPass([])
@@ -451,6 +494,7 @@ macro compose(mod)
 
     esc(Expr(:toplevel, :(module $name
         const AST = $body
+        $(template_instances...)
         const PARENTS = [$(QuoteNode.(mixins)...)]
         const MIXIN_TREE = $(mixin_tree)
         const FIELDS = $(IdDict((n => v.fields for (n, v) in pairs(fields.items))...))
@@ -462,6 +506,17 @@ macro compose(mod)
             for c in values(constructor_items))...)
         $(clean_body...)
     end)))
+end
+```
+
+## Templates
+
+```julia
+#| id: catch-template-definition
+if !isempty(body) & @capture(body[1], {raw_parameters__})
+    parameters = raw_parameters .|> make_parameter
+    template = ModuleTemplate(name, parameters, body[2:end])
+    return esc(Expr(:toplevel, :(const $name = $template)))
 end
 ```
 

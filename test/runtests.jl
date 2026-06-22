@@ -3,6 +3,7 @@ using Test
 
 @testset "ModuleMixins.jl" begin
     include("SpecSpec.jl")
+    include("TemplatesSpec.jl")
     include("PassesSpec.jl")
     include("MixinsSpec.jl")
     include("StructsSpec.jl")

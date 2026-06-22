@@ -1,35 +1,36 @@
-# ~/~ begin <<docs/src/40-studies.md#src/Lambda.jl>>[init]
-module Lambda
+# ~/~ begin <<docs/src/40-studies.md#src/Templates.jl>>[init]
+module Templates
     using MacroTools: @capture
-    import ..Passes: Pass, pass, no_match, walk
     export @lambda, @instantiate
 
+    # ~/~ begin <<docs/src/40-studies.md#template-parameter>>[init]
     struct Parameter
         name::Symbol
-        has_default::Bool
-        default::Any
+        default::Union{Some{Any}, Nothing}
     end
-
-    name(par) = par.name
-    has_default(parameter) = parameter.has_default
-
+    
+    name(parameter) = parameter.name
+    has_default(parameter) = parameter.default !== nothing
+    default(parameter) = something(parameter.default)
+    
     function make_parameter(expr)
         if @capture(expr, name_ = default_)
-            return Parameter(name, true, default)
+            return Parameter(name, Some(default))
         elseif expr isa Symbol
-            return Parameter(expr, false, nothing)
+            return Parameter(expr, nothing)
         else
-            return nothing
+            error("Unknown parameter syntax `$(expr)`.")
         end
     end
-
+    # ~/~ end
+    # ~/~ begin <<docs/src/40-studies.md#template-argument>>[init]
     struct Argument
         name::Union{Symbol, Nothing}
         value::Any
     end
-
+    
     positional(argument) = argument.name === nothing
-
+    
     make_argument(mod) = function (expr)
         value = if @capture(expr, name_ = value_)
             value
@@ -38,12 +39,13 @@ module Lambda
         end
         return Argument(name, @eval(mod, $(value)))
     end
-
+    # ~/~ end
+    # ~/~ begin <<docs/src/40-studies.md#template-bound-variable>>[init]
     struct BoundVariable
         name::Symbol
         value::Any
     end
-
+    
     function bind(pars, args)
         positional_args = Iterators.takewhile(positional, args) |> collect
         keyword_args = Dict(arg.name => arg for arg in args[length(positional_args)+1:end])
@@ -54,14 +56,16 @@ module Lambda
         keyword_bindings = (BoundVariable(par.name, par.name in keys(keyword_args) ?
             keyword_args[par.name].value :
             par.default) for par in keyword_pars)
-        bindings = Iterators.flatten((positional_bindings, keyword_bindings)) |> collect
+        bindings = Iterators.flatten(
+            (positional_bindings, keyword_bindings)) |> collect
         @assert(name.(pars) == name.(bindings))
         return bindings
     end
-
+    
     function as_expression(bv::BoundVariable)
         return :(const $(bv.name) = $(bv.value))
     end
+    # ~/~ end
 
     struct ModuleTemplate
         name::Symbol
@@ -78,9 +82,8 @@ module Lambda
             end)))
         end
         parameters = raw_parameters .|> make_parameter |> filter(!isnothing) |> collect
-        println("module $(name) with parameters $(parameters)")
         template = ModuleTemplate(name, parameters, body[2:end])
-        return esc(:(const $name = $template))
+        return esc(Expr(:toplevel, :(const $name = $template)))
     end
 
     macro instantiate(expr)
