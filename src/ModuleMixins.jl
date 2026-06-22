@@ -6,13 +6,14 @@ include("Spec.jl")
 include("Mixins.jl")
 include("Structs.jl")
 include("Constructors.jl")
-include("Lambda.jl")
+include("Templates.jl")
 
 using MacroTools: @capture, postwalk
 import .Passes: Pass, pass, no_match, walk
 import .Mixins: MixinPass
 import .Structs: Struct, CollectStructPass, define_struct
 import .Constructors: Constructor, CollectConstructorPass, define_constructor
+import .Templates: make_parameters, ModuleTemplate
 
 export @compose, @for_each
 
@@ -49,6 +50,14 @@ merged with those of the same name in `Parents`.
 macro compose(mod)
     @assert @capture(mod, module name_ body__ end)
 
+    # ~/~ begin <<docs/src/50-implementation.md#catch-template-definition>>[init]
+    if !isempty(body) & @capture(body[1], {raw_parameters__})
+        parameters = raw_parameters .|> make_parameter
+        template = ModuleTemplate(name, parameters, body[2:end])
+        return esc(Expr(:toplevel, :(const $name = $template)))
+    end
+    # ~/~ end
+
     mixins = Symbol[]
     mixin_tree = IdDict{Symbol, Vector{Symbol}}()
     parents = MixinPass([])
@@ -79,6 +88,7 @@ macro compose(mod)
 
     esc(Expr(:toplevel, :(module $name
         const AST = $body
+        $(template_instances...)
         const PARENTS = [$(QuoteNode.(mixins)...)]
         const MIXIN_TREE = $(mixin_tree)
         const FIELDS = $(IdDict((n => v.fields for (n, v) in pairs(fields.items))...))

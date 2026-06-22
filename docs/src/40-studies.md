@@ -143,73 +143,137 @@ end
 
 How cool it would be, if we can parametrise a module. Julia rules that modules can only be defined at top-level. So we have to go by the macro route once more. First, we try to implement the desired effect in isolation.
 
-We define a module with arguments using the `@lambda` macro.
+Every module template will have a name, body and a list of parameters.
+Each parameter may have a default argument specified, similar to how functions in Julia can have defaults.
+
+### Spec
 
 ```julia
-#| file: src/Lambda.jl
-module Lambda
+#| file: test/TemplatesSpec.jl
+using ModuleMixins.Templates: @lambda, @instantiate, ModuleTemplate
+
+@lambda module TempA{T}
+    struct S
+        x::T
+    end
+end
+
+@lambda module TempB{M}
+    const X = M.X
+end
+
+module M1
+    const X = 42
+end
+
+@testset "ModuleMixins.Templates" begin
+    @test TempA isa ModuleTemplate
+    @instantiate TempAi = TempA{Int}
+
+    @test TempAi.T === Int
+    @test TempAi.S(4).x isa Int
+
+    @instantiate TempAf = TempA{Float64}
+
+    @test TempAf.T === Float64
+    @test TempAf.S(4).x isa Float64
+
+    @instantiate TempBM1 = TempB{M1}
+    @test TempBM1.X == 42
+end
+```
+
+### Implementation
+
+```julia
+#| id: template-parameter
+struct Parameter
+    name::Symbol
+    default::Union{Some{Any}, Nothing}
+end
+
+name(parameter) = parameter.name
+has_default(parameter) = parameter.default !== nothing
+default(parameter) = something(parameter.default)
+
+function make_parameter(expr)
+    if @capture(expr, name_ = default_)
+        return Parameter(name, Some(default))
+    elseif expr isa Symbol
+        return Parameter(expr, nothing)
+    else
+        error("Unknown parameter syntax `$(expr)`.")
+    end
+end
+```
+
+When arguments are passed to the template instantiation, they are either given positional (i.e. value only) or keyword style (`key = value`). When we convert a given syntax into an argument, we need to evaluate the value in the calling context.
+
+```julia
+#| id: template-argument
+struct Argument
+    name::Union{Symbol, Nothing}
+    value::Any
+end
+
+positional(argument) = argument.name === nothing
+
+make_argument(mod) = function (expr)
+    value = if @capture(expr, name_ = value_)
+        value
+    else
+        expr
+    end
+    return Argument(name, @eval(mod, $(value)))
+end
+```
+
+Given a list of parameters and a list of arguments, we can create a list of bound variables. Here we lay down some rules:
+
+- positional arguments can never follow a keyword argument.
+- at the end of the binding process, we obtain a `name` / `value` pair for each parameter, in the same order as the parameters were defined.
+
+A bound variable will result in the injection of a `const` definition.
+
+```julia
+#| id: template-bound-variable
+struct BoundVariable
+    name::Symbol
+    value::Any
+end
+
+function bind(pars, args)
+    positional_args = Iterators.takewhile(positional, args) |> collect
+    keyword_args = Dict(arg.name => arg for arg in args[length(positional_args)+1:end])
+    keyword_pars = pars[length(positional_args)+1:end]
+    @assert(!any(positional, values(keyword_args)))
+    positional_bindings = (BoundVariable(par.name, arg.value)
+        for (par, arg) in Iterators.zip(pars, positional_args))
+    keyword_bindings = (BoundVariable(par.name, par.name in keys(keyword_args) ?
+        keyword_args[par.name].value :
+        par.default) for par in keyword_pars)
+    bindings = Iterators.flatten(
+        (positional_bindings, keyword_bindings)) |> collect
+    @assert(name.(pars) == name.(bindings))
+    return bindings
+end
+
+function as_expression(bv::BoundVariable)
+    return :(const $(bv.name) = $(bv.value))
+end
+```
+
+We define a module with arguments using the `@lambda` macro, and create an instance with `@instantiate`.
+
+```julia
+#| file: src/Templates.jl
+module Templates
     using MacroTools: @capture
-    import ..Passes: Pass, pass, no_match, walk
     export @lambda, @instantiate
 
-    struct Parameter
-        name::Symbol
-        has_default::Bool
-        default::Any
-    end
-
-    name(par) = par.name
-    has_default(parameter) = parameter.has_default
-
-    function make_parameter(expr)
-        if @capture(expr, name_ = default_)
-            return Parameter(name, true, default)
-        elseif expr isa Symbol
-            return Parameter(expr, false, nothing)
-        else
-            return nothing
-        end
-    end
-
-    struct Argument
-        name::Union{Symbol, Nothing}
-        value::Any
-    end
-
-    positional(argument) = argument.name === nothing
-
-    make_argument(mod) = function (expr)
-        value = if @capture(expr, name_ = value_)
-            value
-        else
-            expr
-        end
-        return Argument(name, @eval(mod, $(value)))
-    end
-
-    struct BoundVariable
-        name::Symbol
-        value::Any
-    end
-
-    function bind(pars, args)
-        positional_args = Iterators.takewhile(positional, args) |> collect
-        keyword_args = Dict(arg.name => arg for arg in args[length(positional_args)+1:end])
-        keyword_pars = pars[length(positional_args)+1:end]
-        @assert(!any(positional, values(keyword_args)))
-        positional_bindings = (BoundVariable(par.name, arg.value)
-            for (par, arg) in Iterators.zip(pars, positional_args))
-        keyword_bindings = (BoundVariable(par.name, par.name in keys(keyword_args) ?
-            keyword_args[par.name].value :
-            par.default) for par in keyword_pars)
-        bindings = Iterators.flatten((positional_bindings, keyword_bindings)) |> collect
-        @assert(name.(pars) == name.(bindings))
-        return bindings
-    end
-
-    function as_expression(bv::BoundVariable)
-        return :(const $(bv.name) = $(bv.value))
-    end
+    <<template-parameter>>
+    <<template-argument>>
+    <<template-bound-variable>>
 
     struct ModuleTemplate
         name::Symbol
@@ -226,9 +290,8 @@ module Lambda
             end)))
         end
         parameters = raw_parameters .|> make_parameter |> filter(!isnothing) |> collect
-        println("module $(name) with parameters $(parameters)")
         template = ModuleTemplate(name, parameters, body[2:end])
-        return esc(:(const $name = $template))
+        return esc(Expr(:toplevel, :(const $name = $template)))
     end
 
     macro instantiate(expr)
