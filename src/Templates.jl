@@ -83,7 +83,7 @@ module Templates
             end)))
         end
         parameters = raw_parameters .|> make_parameter |> filter(!isnothing) |> collect
-        template = ModuleTemplate(name, __module__, parameters, body[2:end])
+        template = ModuleTemplate(name, __module__, parameters, body[2:end], Ref{Int}(0))
         return esc(Expr(:toplevel, :(const $name = $template)))
     end
 

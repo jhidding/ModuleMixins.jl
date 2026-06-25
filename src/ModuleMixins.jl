@@ -13,7 +13,7 @@ import .Passes: Pass, pass, no_match, walk
 import .Mixins: MixinPass
 import .Structs: Struct, CollectStructPass, define_struct
 import .Constructors: Constructor, CollectConstructorPass, define_constructor
-import .Templates: make_parameters, ModuleTemplate
+import .Templates: make_parameter, ModuleTemplate
 
 export @compose, @for_each
 
@@ -53,14 +53,14 @@ macro compose(mod)
     # ~/~ begin <<docs/src/50-implementation.md#catch-template-definition>>[init]
     if !isempty(body) & @capture(body[1], {raw_parameters__})
         parameters = raw_parameters .|> make_parameter
-        template = ModuleTemplate(name, parameters, body[2:end])
+        template = ModuleTemplate(name, __module__, parameters, body[2:end])
         return esc(Expr(:toplevel, :(const $name = $template)))
     end
     # ~/~ end
 
     mixins = Symbol[]
     mixin_tree = IdDict{Symbol, Vector{Symbol}}()
-    parents = MixinPass([])
+    parents = MixinPass(__module__, [])
     usings = CollectUsingPass([])
     consts = CollectConstPass([])
     struct_items = IdDict{Symbol, Struct}()
@@ -69,7 +69,7 @@ macro compose(mod)
     function mixin(expr; name=name)
         structs = CollectStructPass(struct_items, name)
         constructors = CollectConstructorPass(constructor_items)
-        parents = MixinPass([])
+        parents = MixinPass(__module__, [])
         pass1 = walk(parents, expr)
         mixin_tree[name] = parents.items
         for p in parents.items
@@ -88,7 +88,6 @@ macro compose(mod)
 
     esc(Expr(:toplevel, :(module $name
         const AST = $body
-        $(template_instances...)
         const PARENTS = [$(QuoteNode.(mixins)...)]
         const MIXIN_TREE = $(mixin_tree)
         const FIELDS = $(IdDict((n => v.fields for (n, v) in pairs(fields.items))...))
