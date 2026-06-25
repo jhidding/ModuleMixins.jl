@@ -3,10 +3,10 @@ module ModuleMixins
 
 include("Passes.jl")
 include("Spec.jl")
+include("Templates.jl")
 include("Mixins.jl")
 include("Structs.jl")
 include("Constructors.jl")
-include("Templates.jl")
 
 using MacroTools: @capture, postwalk
 import .Passes: Pass, pass, no_match, walk
