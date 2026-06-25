@@ -127,7 +127,7 @@ end
 macro spec_using(mod)
     @assert @capture(mod, module name_ body__ end)
 
-    parents = MixinPass([])
+    parents = MixinPass(__module__, [])
     clean_body = walk(parents, body)
 
     esc(Expr(:toplevel, :(module $name
@@ -522,7 +522,7 @@ end
 
 ```julia
 #| id: catch-template-definition
-if !isempty(body) & @capture(body[1], {raw_parameters__})
+if !isempty(body) && @capture(body[1], {raw_parameters__})
     parameters = raw_parameters .|> make_parameter
     template = ModuleTemplate(name, __module__, parameters, body[2:end])
     return esc(Expr(:toplevel, :(const $name = $template)))

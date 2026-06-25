@@ -51,7 +51,7 @@ macro compose(mod)
     @assert @capture(mod, module name_ body__ end)
 
     # ~/~ begin <<docs/src/50-implementation.md#catch-template-definition>>[init]
-    if !isempty(body) & @capture(body[1], {raw_parameters__})
+    if !isempty(body) && @capture(body[1], {raw_parameters__})
         parameters = raw_parameters .|> make_parameter
         template = ModuleTemplate(name, __module__, parameters, body[2:end])
         return esc(Expr(:toplevel, :(const $name = $template)))

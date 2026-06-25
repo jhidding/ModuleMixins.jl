@@ -76,7 +76,7 @@ end
 macro spec_using(mod)
     @assert @capture(mod, module name_ body__ end)
 
-    parents = MixinPass([])
+    parents = MixinPass(__module__, [])
     clean_body = walk(parents, body)
 
     esc(Expr(:toplevel, :(module $name
