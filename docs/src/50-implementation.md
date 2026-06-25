@@ -8,10 +8,10 @@ module ModuleMixins
 
 include("Passes.jl")
 include("Spec.jl")
+include("Templates.jl")
 include("Mixins.jl")
 include("Structs.jl")
 include("Constructors.jl")
-include("Templates.jl")
 
 using MacroTools: @capture, postwalk
 import .Passes: Pass, pass, no_match, walk
@@ -93,7 +93,7 @@ function parse_mixin_arg(expr)
 end
 
 @kwdef struct MixinPass <: Pass
-    items::Vector{MixinTarget}
+    items::Vector{Union{MixinTemplate,MixinModule}}
 end
 
 function pass(m::MixinPass, mod, expr)
@@ -102,7 +102,6 @@ function pass(m::MixinPass, mod, expr)
     if @capture(deps, (multiple_deps__,))
         targets = multiple_deps .|> parse_mixin_arg(mod)
         append!(m.items, targets)
-        if is_template_target(
         :(
             begin
                 $([:(using ..$d) for d in multiple_deps]...)

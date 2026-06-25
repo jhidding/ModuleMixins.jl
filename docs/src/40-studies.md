@@ -218,7 +218,7 @@ end
 
 positional(argument) = argument.name === nothing
 
-make_argument(mod) = function (expr)
+eval_argument(mod) = function (expr)
     value = if @capture(expr, name_ = value_)
         value
     else
@@ -277,6 +277,7 @@ module Templates
 
     struct ModuleTemplate
         name::Symbol
+        environment::Module
         parameters::Vector{Parameter}
         body::Vector{Any}
     end
@@ -290,20 +291,21 @@ module Templates
             end)))
         end
         parameters = raw_parameters .|> make_parameter |> filter(!isnothing) |> collect
-        template = ModuleTemplate(name, parameters, body[2:end])
+        template = ModuleTemplate(name, __module__, parameters, body[2:end])
         return esc(Expr(:toplevel, :(const $name = $template)))
     end
 
     macro instantiate(expr)
         @assert @capture(expr, instance_name_ = template_name_{raw_arguments__})
-        arguments = raw_arguments .|> make_argument(__module__)
-        template = getfield(__module__, template_name)
+        arguments = raw_arguments .|> eval_argument(__module__)
+        template = @eval(__module__, $(template_name))
         bound_vars = bind(template.parameters, arguments)
-        return esc(Expr(:toplevel, :(module $(instance_name)
-            const AST = $(template.body)
+        module_expr = Expr(:toplevel, :(module $(instance_name)
             $(as_expression.(bound_vars)...)
             $(template.body...)
-        end)))
+        end))
+        result = @eval(template.environment, $(module_expr))
+        return :(using $(nameof(template.environment)).$(instance_name))
     end
 end
 ```
