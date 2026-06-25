@@ -18,7 +18,7 @@ import .Passes: Pass, pass, no_match, walk
 import .Mixins: MixinPass
 import .Structs: Struct, CollectStructPass, define_struct
 import .Constructors: Constructor, CollectConstructorPass, define_constructor
-import .Templates: make_parameters, ModuleTemplate
+import .Templates: make_parameter, ModuleTemplate
 
 export @compose, @for_each
 
@@ -54,34 +54,45 @@ module Mixins
 
 using MacroTools: @capture
 import ..Passes: Pass, pass, no_match, walk
-using ..Templates: Argument, make_argument, bind
+using ..Templates: Argument, eval_argument, bind
 
 struct MixinModule
     name::Symbol
 end
+
+to_symbol(m::MixinModule) = m.name
 
 struct MixinTemplate
     name::Symbol
     arguments::Vector{Any}
 end
 
-function as_expression(mod, target::MixinModule)
+function as_expression(target::MixinModule)
     return :(using ..$(target.name))
 end
 
-function as_expression(mod, target::MixinTemplate)
-    template = getfield(mod, target.name)
-    arguments = target.arguments |> make_argument(mod)
-    bound_vars = bind(template.parameters, arguments)
-    return :(begin
-        @compose module $(target.name)
+function to_module(mod)
+    _to_module(t::MixinModule) = t
+
+    function _to_module(t::MixinTemplate)
+        template = @eval(mod, t.name)
+
+        arguments = t.arguments .|> eval_argument(mod)
+        bound_vars = bind(template.parameters, arguments)
+        instance_name = gensym(t.name)
+
+        module_expr = Expr(:toplevel, :(@compose module $(instance_name)
             $(as_expression.(bound_vars)...)
             $(template.body...)
-        end
+        end))
+        @eval(template.environment, $(module_expr))
 
-        using .$(target.name)
-    end)
+        return MixinModule(instance_name)
+    end
+
+    return _to_module
 end
+
 
 function parse_mixin_arg(expr)
     if @capture(expr, name_{raw_arguments__})
@@ -93,24 +104,24 @@ function parse_mixin_arg(expr)
 end
 
 @kwdef struct MixinPass <: Pass
-    items::Vector{Union{MixinTemplate,MixinModule}}
+    environment::Module
+    items::Vector{Symbol}
 end
 
-function pass(m::MixinPass, mod, expr)
-    @capture(expr, @mixin deps_) || return no_match
+function pass(m::MixinPass, expr)
+    @capture(expr, @mixin raw_deps_) || return no_match
 
-    if @capture(deps, (multiple_deps__,))
-        targets = multiple_deps .|> parse_mixin_arg(mod)
-        append!(m.items, targets)
-        :(
-            begin
-                $([:(using ..$d) for d in multiple_deps]...)
-            end
-        )
+    deps = if @capture(raw_deps, (multiple_deps__,))
+        multiple_deps
     else
-        push!(m.items, deps)
-        :(using ..$deps)
+        [raw_deps]
     end
+
+    targets = deps .|> parse_mixin_arg .|> to_module(m.environment)
+    append!(m.items, targets .|> to_symbol)
+    return :(begin
+        $((targets .|> as_expression)...)
+    end)
 end
 
 macro spec_using(mod)
@@ -465,7 +476,7 @@ macro compose(mod)
 
     mixins = Symbol[]
     mixin_tree = IdDict{Symbol, Vector{Symbol}}()
-    parents = MixinPass([])
+    parents = MixinPass(__module__, [])
     usings = CollectUsingPass([])
     consts = CollectConstPass([])
     struct_items = IdDict{Symbol, Struct}()
@@ -474,7 +485,7 @@ macro compose(mod)
     function mixin(expr; name=name)
         structs = CollectStructPass(struct_items, name)
         constructors = CollectConstructorPass(constructor_items)
-        parents = MixinPass([])
+        parents = MixinPass(__module__, [])
         pass1 = walk(parents, expr)
         mixin_tree[name] = parents.items
         for p in parents.items
@@ -493,7 +504,6 @@ macro compose(mod)
 
     esc(Expr(:toplevel, :(module $name
         const AST = $body
-        $(template_instances...)
         const PARENTS = [$(QuoteNode.(mixins)...)]
         const MIXIN_TREE = $(mixin_tree)
         const FIELDS = $(IdDict((n => v.fields for (n, v) in pairs(fields.items))...))
@@ -514,7 +524,7 @@ end
 #| id: catch-template-definition
 if !isempty(body) & @capture(body[1], {raw_parameters__})
     parameters = raw_parameters .|> make_parameter
-    template = ModuleTemplate(name, parameters, body[2:end])
+    template = ModuleTemplate(name, __module__, parameters, body[2:end])
     return esc(Expr(:toplevel, :(const $name = $template)))
 end
 ```

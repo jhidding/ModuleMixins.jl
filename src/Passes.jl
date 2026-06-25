@@ -12,7 +12,7 @@ struct NoMatch end
 const no_match = NoMatch()
 
 """
-    pass(x::Pass, mod, expr)
+    pass(x::Pass, expr)
 
 Interface. An implementation of the `pass` function should take a `Pass` object
 and an expression (or symbol), and return `no_match` if the expression did not
@@ -22,7 +22,7 @@ You can use the given `Pass` object to store information about this pass, return
 syntax that should replace the current expression, or `nothing` if it should be
 removed.
 """
-function pass(x::Pass, mod, expr)
+function pass(x::Pass, expr)
     error("Can't call `pass` on abstract `Pass`.")
 end
 
@@ -35,15 +35,15 @@ Base.convert(::Type{CompositePass}, a::Pass) = CompositePass([a])
 Base.:+(a::Pass...) = splat(+)(convert.(CompositePass, a))
 
 """
-    pass(x::CompositePass, mod, expr)
+    pass(x::CompositePass, expr)
 
 Tries all passes in a composite pass in order, and returns with the first
 that succeeds (i.e. doesn't return `no_match`). You may create a `CompositePass`
 by adding passes with the `+` operator.
 """
-function pass(cp::CompositePass, mod, expr)
+function pass(cp::CompositePass, expr)
     for p in cp.parts
-        result = pass(p, mod, expr)
+        result = pass(p, expr)
         if result !== no_match
             return result
         end
@@ -52,14 +52,14 @@ function pass(cp::CompositePass, mod, expr)
 end
 
 """
-    walk(x::Pass, mod, expr_list)
+    walk(x::Pass, expr_list)
 
 Calls `MacroTools.prewalk` with the given `Pass`. If `no_match` is returned,
 the expression stays untouched.
 """
-function walk(x::Pass, mod, expr_list)
+function walk(x::Pass, expr_list)
     function patch(expr)
-        result = pass(x, mod, expr)
+        result = pass(x, expr)
         result === no_match ? expr : result
     end
     prewalk.(patch, expr_list)
