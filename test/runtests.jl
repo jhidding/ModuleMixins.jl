@@ -9,5 +9,6 @@ using Test
     include("StructsSpec.jl")
     include("ConstructorsSpec.jl")
     include("ComposeSpec.jl")
+    include("TemplateMixinSpec.jl")
 end
 # ~/~ end

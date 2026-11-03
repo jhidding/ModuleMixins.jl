@@ -1,6 +1,35 @@
 # ~/~ begin <<docs/src/50-implementation.md#src/ModuleMixins.jl>>[init]
 module ModuleMixins
 
+module Common
+    """
+    Generic function for converting syntax data objects to expressions.
+    """
+    function to_expression end
+
+    """
+        eval_to_expression(mod::Module, obj)
+
+    Generic function for converting syntax data objects to expressions,
+    where parts of expressions need to be evaluated in a given module.
+
+    Defaults to calling `to_expression`, dropping the `mod` argument.
+    """
+    eval_to_expression(mod::Module, obj) = to_expression(obj)
+
+    """
+        eval_to_expression(mod::Module)
+
+    Currying version of `eval_to_expression`.
+    """
+    eval_to_expression(mod::Module) = obj -> eval_to_expression(mod, obj)
+
+    """
+    Get name attribute from syntax data object.
+    """
+    name(obj) = obj.name
+end
+
 include("Passes.jl")
 include("Spec.jl")
 include("Templates.jl")
@@ -9,6 +38,7 @@ include("Structs.jl")
 include("Constructors.jl")
 
 using MacroTools: @capture, postwalk
+import .Common: name
 import .Passes: Pass, pass, no_match, walk
 import .Mixins: MixinPass
 import .Structs: Struct, CollectStructPass, define_struct
@@ -48,13 +78,13 @@ Creates a new composable module `Name`. Structs inside this module are
 merged with those of the same name in `Parents`.
 """
 macro compose(mod)
-    @assert @capture(mod, module name_ body__ end)
+    @assert @capture(mod, module mod_name_ body__ end)
 
     # ~/~ begin <<docs/src/50-implementation.md#catch-template-definition>>[init]
     if !isempty(body) && @capture(body[1], {raw_parameters__})
         parameters = raw_parameters .|> make_parameter
-        template = ModuleTemplate(name, __module__, parameters, body[2:end])
-        return esc(Expr(:toplevel, :(const $name = $template)))
+        template = ModuleTemplate(mod_name, __module__, parameters, body[2:end])
+        return esc(Expr(:toplevel, :(const $mod_name = $template)))
     end
     # ~/~ end
 
@@ -66,27 +96,27 @@ macro compose(mod)
     struct_items = IdDict{Symbol, Struct}()
     constructor_items = IdDict{Symbol, Constructor}()
 
-    function mixin(expr; name=name)
-        structs = CollectStructPass(struct_items, name)
+    function mixin(expr; mod_name=mod_name)
+        structs = CollectStructPass(struct_items, mod_name)
         constructors = CollectConstructorPass(constructor_items)
         parents = MixinPass(__module__, [])
         pass1 = walk(parents, expr)
-        mixin_tree[name] = parents.items
+        mixin_tree[mod_name] = name.(parents.items)
         for p in parents.items
-            p in mixins && continue
-            push!(mixins, p)
-            parent_expr = Core.eval(__module__, :($(p).AST))
-            mixin(parent_expr; name=p)
+            name(p) in mixins && continue
+            push!(mixins, name(p))
+            parent_expr = Core.eval(__module__, :($(name(p)).AST))
+            mixin(parent_expr; mod_name=name(p))
         end
         walk(usings + consts + structs + constructors, pass1)
     end
 
-    fields = CollectStructPass(IdDict{Symbol,Struct}(), name)
+    fields = CollectStructPass(IdDict{Symbol,Struct}(), mod_name)
     walk(fields, body)
 
     clean_body = mixin(body)
 
-    esc(Expr(:toplevel, :(module $name
+    esc(Expr(:toplevel, :(module $mod_name
         const AST = $body
         const PARENTS = [$(QuoteNode.(mixins)...)]
         const MIXIN_TREE = $(mixin_tree)

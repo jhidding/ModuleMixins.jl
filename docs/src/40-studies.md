@@ -258,7 +258,7 @@ function bind(pars, args)
     return bindings
 end
 
-function as_expression(bv::BoundVariable)
+function to_expression(bv::BoundVariable)
     return :(const $(bv.name) = $(bv.value))
 end
 ```
@@ -269,6 +269,7 @@ We define a module with arguments using the `@lambda` macro, and create an insta
 #| file: src/Templates.jl
 module Templates
     using MacroTools: @capture
+    import ..Common: to_expression
     export @lambda, @instantiate
 
     <<template-parameter>>
@@ -301,7 +302,7 @@ module Templates
         template = @eval(__module__, $(template_name))
         bound_vars = bind(template.parameters, arguments)
         module_expr = Expr(:toplevel, :(module $(instance_name)
-            $(as_expression.(bound_vars)...)
+            $(to_expression.(bound_vars)...)
             $(template.body...)
         end))
         result = @eval(template.environment, $(module_expr))

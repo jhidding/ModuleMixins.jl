@@ -2,59 +2,56 @@
 module Mixins
 
 using MacroTools: @capture
+import ..Common: to_expression, eval_to_expression, name
 import ..Passes: Pass, pass, no_match, walk
 using ..Templates: Argument, eval_argument, bind
 
-struct MixinModule
+abstract type AbstractMixin end
+
+struct MixinModule <: AbstractMixin
     name::Symbol
 end
 
-to_symbol(m::MixinModule) = m.name
+to_expression(t::MixinModule) = :(using ..$(t.name))
 
-struct MixinTemplate
-    name::Symbol
+# ~/~ begin <<docs/src/50-implementation.md#template-expansion>>[init]
+struct MixinTemplate <: AbstractMixin
+    instance_name::Symbol
+    template_name::Symbol
     arguments::Vector{Any}
 end
 
-function as_expression(target::MixinModule)
-    return :(using ..$(target.name))
+name(t::MixinTemplate) = t.instance_name
+
+function eval_to_expression(mod::Module, t::MixinTemplate)
+    template = Core.eval(mod, t.template_name)
+
+    arguments = t.arguments .|> eval_argument(mod)
+    bound_vars = bind(template.parameters, arguments)
+
+    module_expr = Expr(:toplevel, :(@compose module $(t.instance_name)
+        $(to_expression.(bound_vars)...)
+        $(template.body...)
+    end))
+    @eval(template.environment, $(module_expr))
+
+    return :(using ..$(nameof(template.environment)): $(t.instance_name) as $(t.template_name))
 end
-
-function to_module(mod)
-    _to_module(t::MixinModule) = t
-
-    function _to_module(t::MixinTemplate)
-        template = @eval(mod, t.name)
-
-        arguments = t.arguments .|> eval_argument(mod)
-        bound_vars = bind(template.parameters, arguments)
-        instance_name = gensym(t.name)
-
-        module_expr = Expr(:toplevel, :(@compose module $(instance_name)
-            $(as_expression.(bound_vars)...)
-            $(template.body...)
-        end))
-        @eval(template.environment, $(module_expr))
-
-        return MixinModule(instance_name)
-    end
-
-    return _to_module
-end
-
 
 function parse_mixin_arg(expr)
     if @capture(expr, name_{raw_arguments__})
-        return MixinTemplate(name, raw_arguments)
+        instance_name = gensym(name)
+        return MixinTemplate(instance_name, name, raw_arguments)
     elseif expr isa Symbol
         return MixinModule(expr)
     end
     error("illegal mixin target: $(expr)")
 end
+# ~/~ end
 
 @kwdef struct MixinPass <: Pass
     environment::Module
-    items::Vector{Symbol}
+    items::Vector{AbstractMixin}
 end
 
 function pass(m::MixinPass, expr)
@@ -66,23 +63,24 @@ function pass(m::MixinPass, expr)
         [raw_deps]
     end
 
-    targets = deps .|> parse_mixin_arg .|> to_module(m.environment)
-    append!(m.items, targets .|> to_symbol)
+    targets = deps .|> parse_mixin_arg
+    append!(m.items, targets)
+    imports = targets .|> eval_to_expression(m.environment)
     return :(begin
-        $((targets .|> as_expression)...)
+        $(imports...)
     end)
 end
 
 macro spec_using(mod)
-    @assert @capture(mod, module name_ body__ end)
+    @assert @capture(mod, module mod_name_ body__ end)
 
     parents = MixinPass(__module__, [])
     clean_body = walk(parents, body)
 
-    esc(Expr(:toplevel, :(module $name
+    esc(Expr(:toplevel, :(module $mod_name
         $(clean_body...)
         const AST = $body
-        const PARENTS = [$(QuoteNode.(parents.items)...)]
+        const PARENTS = [$(QuoteNode.(name.(parents.items))...)]
     end)))
 end
 

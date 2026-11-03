@@ -6,6 +6,35 @@
 #| file: src/ModuleMixins.jl
 module ModuleMixins
 
+module Common
+    """
+    Generic function for converting syntax data objects to expressions.
+    """
+    function to_expression end
+
+    """
+        eval_to_expression(mod::Module, obj)
+
+    Generic function for converting syntax data objects to expressions,
+    where parts of expressions need to be evaluated in a given module.
+
+    Defaults to calling `to_expression`, dropping the `mod` argument.
+    """
+    eval_to_expression(mod::Module, obj) = to_expression(obj)
+
+    """
+        eval_to_expression(mod::Module)
+
+    Currying version of `eval_to_expression`.
+    """
+    eval_to_expression(mod::Module) = obj -> eval_to_expression(mod, obj)
+
+    """
+    Get name attribute from syntax data object.
+    """
+    name(obj) = obj.name
+end
+
 include("Passes.jl")
 include("Spec.jl")
 include("Templates.jl")
@@ -14,6 +43,7 @@ include("Structs.jl")
 include("Constructors.jl")
 
 using MacroTools: @capture, postwalk
+import .Common: name
 import .Passes: Pass, pass, no_match, walk
 import .Mixins: MixinPass
 import .Structs: Struct, CollectStructPass, define_struct
@@ -42,70 +72,35 @@ using Test
     include("StructsSpec.jl")
     include("ConstructorsSpec.jl")
     include("ComposeSpec.jl")
+    include("TemplateMixinSpec.jl")
 end
 ```
 
 ## Mixin Pass
-The `MixinPass` now filters for appearances of the `@mixin <Component>` syntax and transforms them into `using ..<Component>`. This assumes that the symbols used are visible in the parent module.
+The `MixinPass` now filters for appearances of the `@mixin <Component>` syntax and transforms them into `using ..<Component>`. This assumes that the symbols used are visible in the parent module. In the case of a template mixin, the template instantiation is created with a unique name (using `gensym`) and imported aliased to the original name.
 
 ```julia
 #| file: src/Mixins.jl
 module Mixins
 
 using MacroTools: @capture
+import ..Common: to_expression, eval_to_expression, name
 import ..Passes: Pass, pass, no_match, walk
 using ..Templates: Argument, eval_argument, bind
 
-struct MixinModule
+abstract type AbstractMixin end
+
+struct MixinModule <: AbstractMixin
     name::Symbol
 end
 
-to_symbol(m::MixinModule) = m.name
+to_expression(t::MixinModule) = :(using ..$(t.name))
 
-struct MixinTemplate
-    name::Symbol
-    arguments::Vector{Any}
-end
-
-function as_expression(target::MixinModule)
-    return :(using ..$(target.name))
-end
-
-function to_module(mod)
-    _to_module(t::MixinModule) = t
-
-    function _to_module(t::MixinTemplate)
-        template = @eval(mod, t.name)
-
-        arguments = t.arguments .|> eval_argument(mod)
-        bound_vars = bind(template.parameters, arguments)
-        instance_name = gensym(t.name)
-
-        module_expr = Expr(:toplevel, :(@compose module $(instance_name)
-            $(as_expression.(bound_vars)...)
-            $(template.body...)
-        end))
-        @eval(template.environment, $(module_expr))
-
-        return MixinModule(instance_name)
-    end
-
-    return _to_module
-end
-
-
-function parse_mixin_arg(expr)
-    if @capture(expr, name_{raw_arguments__})
-        return MixinTemplate(name, raw_arguments)
-    elseif expr isa Symbol
-        return MixinModule(expr)
-    end
-    error("illegal mixin target: $(expr)")
-end
+<<template-expansion>>
 
 @kwdef struct MixinPass <: Pass
     environment::Module
-    items::Vector{Symbol}
+    items::Vector{AbstractMixin}
 end
 
 function pass(m::MixinPass, expr)
@@ -117,23 +112,24 @@ function pass(m::MixinPass, expr)
         [raw_deps]
     end
 
-    targets = deps .|> parse_mixin_arg .|> to_module(m.environment)
-    append!(m.items, targets .|> to_symbol)
+    targets = deps .|> parse_mixin_arg
+    append!(m.items, targets)
+    imports = targets .|> eval_to_expression(m.environment)
     return :(begin
-        $((targets .|> as_expression)...)
+        $(imports...)
     end)
 end
 
 macro spec_using(mod)
-    @assert @capture(mod, module name_ body__ end)
+    @assert @capture(mod, module mod_name_ body__ end)
 
     parents = MixinPass(__module__, [])
     clean_body = walk(parents, body)
 
-    esc(Expr(:toplevel, :(module $name
+    esc(Expr(:toplevel, :(module $mod_name
         $(clean_body...)
         const AST = $body
-        const PARENTS = [$(QuoteNode.(parents.items)...)]
+        const PARENTS = [$(QuoteNode.(name.(parents.items))...)]
     end)))
 end
 
@@ -470,7 +466,7 @@ Creates a new composable module `Name`. Structs inside this module are
 merged with those of the same name in `Parents`.
 """
 macro compose(mod)
-    @assert @capture(mod, module name_ body__ end)
+    @assert @capture(mod, module mod_name_ body__ end)
 
     <<catch-template-definition>>
 
@@ -482,27 +478,27 @@ macro compose(mod)
     struct_items = IdDict{Symbol, Struct}()
     constructor_items = IdDict{Symbol, Constructor}()
 
-    function mixin(expr; name=name)
-        structs = CollectStructPass(struct_items, name)
+    function mixin(expr; mod_name=mod_name)
+        structs = CollectStructPass(struct_items, mod_name)
         constructors = CollectConstructorPass(constructor_items)
         parents = MixinPass(__module__, [])
         pass1 = walk(parents, expr)
-        mixin_tree[name] = parents.items
+        mixin_tree[mod_name] = name.(parents.items)
         for p in parents.items
-            p in mixins && continue
-            push!(mixins, p)
-            parent_expr = Core.eval(__module__, :($(p).AST))
-            mixin(parent_expr; name=p)
+            name(p) in mixins && continue
+            push!(mixins, name(p))
+            parent_expr = Core.eval(__module__, :($(name(p)).AST))
+            mixin(parent_expr; mod_name=name(p))
         end
         walk(usings + consts + structs + constructors, pass1)
     end
 
-    fields = CollectStructPass(IdDict{Symbol,Struct}(), name)
+    fields = CollectStructPass(IdDict{Symbol,Struct}(), mod_name)
     walk(fields, body)
 
     clean_body = mixin(body)
 
-    esc(Expr(:toplevel, :(module $name
+    esc(Expr(:toplevel, :(module $mod_name
         const AST = $body
         const PARENTS = [$(QuoteNode.(mixins)...)]
         const MIXIN_TREE = $(mixin_tree)
@@ -520,12 +516,83 @@ end
 
 ## Templates
 
+Templates are defined by adding an argument list to a `@compose module` definition, made possible by the following catch in the `@compose` macro.
+
 ```julia
 #| id: catch-template-definition
 if !isempty(body) && @capture(body[1], {raw_parameters__})
     parameters = raw_parameters .|> make_parameter
-    template = ModuleTemplate(name, __module__, parameters, body[2:end])
-    return esc(Expr(:toplevel, :(const $name = $template)))
+    template = ModuleTemplate(mod_name, __module__, parameters, body[2:end])
+    return esc(Expr(:toplevel, :(const $mod_name = $template)))
+end
+```
+
+Then the `@mixin` pass expands templates. A module with a unique name is generated in the parent space and imported into the mixin by the original template name.
+
+```julia
+#| id: template-expansion
+struct MixinTemplate <: AbstractMixin
+    instance_name::Symbol
+    template_name::Symbol
+    arguments::Vector{Any}
+end
+
+name(t::MixinTemplate) = t.instance_name
+
+function eval_to_expression(mod::Module, t::MixinTemplate)
+    template = Core.eval(mod, t.template_name)
+
+    arguments = t.arguments .|> eval_argument(mod)
+    bound_vars = bind(template.parameters, arguments)
+
+    module_expr = Expr(:toplevel, :(@compose module $(t.instance_name)
+        $(to_expression.(bound_vars)...)
+        $(template.body...)
+    end))
+    @eval(template.environment, $(module_expr))
+
+    return :(using ..$(nameof(template.environment)): $(t.instance_name) as $(t.template_name))
+end
+
+function parse_mixin_arg(expr)
+    if @capture(expr, name_{raw_arguments__})
+        instance_name = gensym(name)
+        return MixinTemplate(instance_name, name, raw_arguments)
+    elseif expr isa Symbol
+        return MixinModule(expr)
+    end
+    error("illegal mixin target: $(expr)")
+end
+```
+
+### Tests
+
+```julia
+#| file: test/TemplateMixinSpec.jl
+module TMSpec
+    using ModuleMixins: @compose
+    @compose module A{T}
+        struct S
+            x::T
+        end
+    end
+
+    @compose module B
+        @mixin A{Int}
+    end
+
+    @compose module C
+        @mixin A{Float64}
+    end
+
+    export A, B, C
+end
+
+@testset "ModuleMixins.TemplateMixins" begin
+    using .TMSpec
+
+    @test fieldtype(B.S, 1) is Int
+    @test fieldtype(C.S, 1) is Float64
 end
 ```
 

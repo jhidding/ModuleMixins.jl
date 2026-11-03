@@ -1,6 +1,7 @@
 # ~/~ begin <<docs/src/40-studies.md#src/Templates.jl>>[init]
 module Templates
     using MacroTools: @capture
+    import ..Common: to_expression
     export @lambda, @instantiate
 
     # ~/~ begin <<docs/src/40-studies.md#template-parameter>>[init]
@@ -62,7 +63,7 @@ module Templates
         return bindings
     end
     
-    function as_expression(bv::BoundVariable)
+    function to_expression(bv::BoundVariable)
         return :(const $(bv.name) = $(bv.value))
     end
     # ~/~ end
@@ -93,7 +94,7 @@ module Templates
         template = @eval(__module__, $(template_name))
         bound_vars = bind(template.parameters, arguments)
         module_expr = Expr(:toplevel, :(module $(instance_name)
-            $(as_expression.(bound_vars)...)
+            $(to_expression.(bound_vars)...)
             $(template.body...)
         end))
         result = @eval(template.environment, $(module_expr))
