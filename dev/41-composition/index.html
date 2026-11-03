@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Composition by closure · ModuleMixins.jl</title><meta name="title" content="Composition by closure · ModuleMixins.jl"/><meta property="og:title" content="Composition by closure · ModuleMixins.jl"/><meta property="twitter:title" content="Composition by closure · ModuleMixins.jl"/><meta name="description" content="Documentation for ModuleMixins.jl."/><meta property="og:description" content="Documentation for ModuleMixins.jl."/><meta property="twitter:description" content="Documentation for ModuleMixins.jl."/><meta property="og:url" content="https://jhidding.github.io/ModuleMixins.jl/41-composition/"/><meta property="twitter:url" content="https://jhidding.github.io/ModuleMixins.jl/41-composition/"/><link rel="canonical" href="https://jhidding.github.io/ModuleMixins.jl/41-composition/"/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.63.2/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../">ModuleMixins.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">ModuleMixins</a></li><li><a class="tocitem" href="../10-introduction/">Introduction</a></li><li><a class="tocitem" href="../20-example/">Example</a></li><li><a class="tocitem" href="../30-blog/">Objects, Inheritance and Modules in Julia</a></li><li><a class="tocitem" href="../40-studies/">Etudes in Macro Programming</a></li><li class="is-active"><a class="tocitem" href>Composition by closure</a><ul class="internal"><li><a class="tocitem" href="#Implementation"><span>Implementation</span></a></li><li><a class="tocitem" href="#An-elemental-example"><span>An elemental example</span></a></li><li><a class="tocitem" href="#Porting-the-spring-example"><span>Porting the spring example</span></a></li><li><a class="tocitem" href="#Compared-to-@compose"><span>Compared to <code>@compose</code></span></a></li></ul></li><li><a class="tocitem" href="../45-passes/">Macro passes</a></li><li><a class="tocitem" href="../50-implementation/">Implementation</a></li><li><a class="tocitem" href="../90-contributing/">Contributing guidelines</a></li><li><a class="tocitem" href="../91-developer/">Developer documentation</a></li><li><a class="tocitem" href="../95-reference/">Reference</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Composition by closure</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Composition by closure</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/jhidding/ModuleMixins.jl/blob/main/docs/src/41-composition.md#" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Composition-by-closure"><a class="docs-heading-anchor" href="#Composition-by-closure">Composition by closure</a><a id="Composition-by-closure-1"></a><a class="docs-heading-anchor-permalink" href="#Composition-by-closure" title="Permalink"></a></h1><div class="admonition is-info" id="Origin-54f4d3a491bca35d"><header class="admonition-header">Origin<a class="admonition-anchor" href="#Origin-54f4d3a491bca35d" title="Permalink"></a></header><div class="admonition-body"><p>This chapter, including the prototype code in <code>examples/composition</code>, was written by Claude Opus 5.5 (Anthropic) at the request of Johan Hidding, on 2026-11-03.</p></div></div><p>This page is a stand-alone prototype of the design discussed in <a href="https://github.com/jhidding/ModuleMixins.jl/issues/14">issue #14</a>. It doesn&#39;t use <code>@compose</code> at all. The question it tries to answer: can we keep what <code>@compose</code> is good at (diamond inheritance and automatically including all transitive dependencies), while composing values out of parts that Julia can dispatch on, instead of merging structs by name?</p><p>The prototype has three ingredients:</p><ol><li>A <strong>component</strong> is an ordinary type (here, each component module defines an <code>Input</code> struct). A component declares what it depends on by extending <code>requires</code>. A dependency is either another component (a concrete type) or a <strong>role</strong> (an abstract type), which any component subtyping it can fill.</li><li>A <strong>closure</strong> computation walks those declarations, resolves roles, and returns every needed component exactly once, dependencies first. This is the part of <code>@compose</code> that handles the diamond.</li><li>A <strong><code>Composite</code></strong> holds one part per component. Property access is forwarded to the part that owns the field, so code can keep writing <code>input.t_step</code>, but each part keeps its own type for dispatch.</li></ol><p>No macros are needed: the closure is computed by an ordinary function, and the composed type is just <code>Composite{Tuple{...}}</code>.</p><h2 id="Implementation"><a class="docs-heading-anchor" href="#Implementation">Implementation</a><a id="Implementation-1"></a><a class="docs-heading-anchor-permalink" href="#Implementation" title="Permalink"></a></h2><details class="admonition is-details" id="examples/composition/composition.jl-39114b6fd6fafe20"><summary class="admonition-header">examples/composition/composition.jl<a class="admonition-anchor" href="#examples/composition/composition.jl-39114b6fd6fafe20" title="Permalink"></a></summary><div class="admonition-body"><pre><code class="language-julia hljs">#| file: examples/composition/composition.jl
+module Composition
+
+export requires, default_implementation, closure, model_type,
+    Composite, parts, component, map_components
+
+&lt;&lt;composition-requires&gt;&gt;
+&lt;&lt;composition-closure&gt;&gt;
+&lt;&lt;composition-composite&gt;&gt;
+&lt;&lt;composition-component&gt;&gt;
+&lt;&lt;composition-construct&gt;&gt;
+
+end</code></pre></div></details><h3 id="Requirements-and-roles"><a class="docs-heading-anchor" href="#Requirements-and-roles">Requirements and roles</a><a id="Requirements-and-roles-1"></a><a class="docs-heading-anchor-permalink" href="#Requirements-and-roles" title="Permalink"></a></h3><p>By default a component has no dependencies. Components with dependencies extend <code>requires</code>. A role may name a default implementation, used when nothing else fills it.</p><pre><code class="language-julia hljs">#| id: composition-requires
+&quot;&quot;&quot;
+    requires(T::Type)
+
+The components (concrete types) or roles (abstract types) that component `T`
+depends on. Extend this for every component that has dependencies.
+&quot;&quot;&quot;
+requires(::Type) = ()
+
+&quot;&quot;&quot;
+    default_implementation(R::Type)
+
+The component used to fill role `R` if no component implementing `R` is
+selected explicitly.
+&quot;&quot;&quot;
+default_implementation(R::Type) =
+    error(&quot;no component implementing role $(R) was selected, and there is no default&quot;)</code></pre><h3 id="Closure"><a class="docs-heading-anchor" href="#Closure">Closure</a><a id="Closure-1"></a><a class="docs-heading-anchor-permalink" href="#Closure" title="Permalink"></a></h3><p><code>closure</code> does a depth-first walk from the selected components, appending each component after its dependencies, so that every component appears once. Roles are resolved first: a component selected explicitly takes precedence over the default implementation. Selecting two implementations of the same role is an error, and so is a cycle.</p><pre><code class="language-julia hljs">#| id: composition-closure
+&quot;&quot;&quot;
+    closure(roots::Type...)
+
+Compute all components needed by `roots`, in dependency order (dependencies
+first), each component appearing once. Abstract requirements (roles) are
+resolved to a component implementing them: one of the `roots` if any, otherwise
+`default_implementation`.
+&quot;&quot;&quot;
+function closure(roots::Type...)
+    order = Type[]
+    visiting = Type[]
+
+    function resolve(R)
+        isabstracttype(R) || return R
+        candidates = [C for C in roots if C &lt;: R]
+        length(candidates) &gt; 1 &amp;&amp;
+            error(&quot;role $(R) is implemented by more than one component: $(candidates)&quot;)
+        isempty(candidates) || return only(candidates)
+        return default_implementation(R)
+    end
+
+    function visit(T)
+        C = resolve(T)
+        C in order &amp;&amp; return
+        C in visiting &amp;&amp; error(&quot;cyclic requirement: $(join([visiting; C], &quot; -&gt; &quot;))&quot;)
+        push!(visiting, C)
+        foreach(visit, requires(C))
+        pop!(visiting)
+        push!(order, C)
+    end
+
+    foreach(visit, roots)
+    return Tuple(order)
+end</code></pre><h3 id="Composite-values"><a class="docs-heading-anchor" href="#Composite-values">Composite values</a><a id="Composite-values-1"></a><a class="docs-heading-anchor-permalink" href="#Composite-values" title="Permalink"></a></h3><p>A <code>Composite</code> wraps a tuple of parts. Property access is forwarded to the part that has a field of that name. The lookup is done in a generated function, so for a constant property name it resolves at compile time and <code>input.t_step</code> is as fast as a field access.</p><pre><code class="language-julia hljs">#| id: composition-composite
+&quot;&quot;&quot;
+    Composite{T &lt;: Tuple}
+
+A value composed of parts, one per component. Properties are forwarded to the
+part that has a field of that name, so `c.x` works for any field `x` of any
+part.
+&quot;&quot;&quot;
+struct Composite{T &lt;: Tuple}
+    parts::T
+end
+
+parts(c::Composite) = getfield(c, :parts)
+
+# Index of the part that owns field `name`. Computed at compile time.
+@generated function _owner(::Type{T}, ::Val{name}) where {T &lt;: Tuple, name}
+    i = findfirst(P -&gt; hasfield(P, name), fieldtypes(T))
+    i === nothing ? :(error(&quot;no component has a field `$(name)`&quot;)) : i
+end
+
+Base.getproperty(c::Composite, name::Symbol) =
+    getfield(parts(c)[_owner(typeof(parts(c)), Val(name))], name)
+
+Base.setproperty!(c::Composite, name::Symbol, value) =
+    setproperty!(parts(c)[_owner(typeof(parts(c)), Val(name))], name, value)
+
+Base.propertynames(c::Composite) = Tuple(Iterators.flatten(fieldnames.(typeof.(parts(c)))))
+
+function Base.show(io::IO, c::Composite)
+    print(io, &quot;Composite(&quot;)
+    join(io, parts(c), &quot;, &quot;)
+    print(io, &quot;)&quot;)
+end</code></pre><p>A component reaches its dependencies through <code>component</code>, which looks up a part by its type or by the role it implements. This is where dispatch comes in: the part that comes back has its own concrete type.</p><pre><code class="language-julia hljs">#| id: composition-component
+# Index of the part that is (or implements) `T`. Computed at compile time.
+@generated function _index(::Type{P}, ::Type{T}) where {P &lt;: Tuple, T}
+    i = findfirst(X -&gt; X &lt;: T, fieldtypes(P))
+    i === nothing ? :(error(&quot;no component of type $(T)&quot;)) : i
+end
+
+&quot;&quot;&quot;
+    component(c::Composite, T)
+
+The part of `c` that is of type `T`, or that implements role `T`.
+&quot;&quot;&quot;
+component(c::Composite, ::Type{T}) where {T} = parts(c)[_index(typeof(parts(c)), T)]
+
+&quot;&quot;&quot;
+    map_components(f, c::Composite)
+
+Apply `f` to every part of `c` and compose the results that aren&#39;t `nothing`.
+&quot;&quot;&quot;
+map_components(f, c::Composite) = Composite(Tuple(filter(!isnothing, map(f, parts(c)))))</code></pre><h3 id="Construction"><a class="docs-heading-anchor" href="#Construction">Construction</a><a id="Construction-1"></a><a class="docs-heading-anchor-permalink" href="#Construction" title="Permalink"></a></h3><p>Users shouldn&#39;t need to know how a model is split into parts, so a composite is constructed from flat keyword arguments. Each argument is routed to the part that has a field of that name, and unknown arguments are an error. <code>model_type</code> computes the closure and checks that no field name is defined by two components, since forwarding would be ambiguous otherwise.</p><pre><code class="language-julia hljs">#| id: composition-construct
+&quot;&quot;&quot;
+    Composite{T}(; kwargs...)
+
+Construct a composite from flat keyword arguments. Each keyword goes to the
+part that has a field of that name.
+&quot;&quot;&quot;
+function (::Type{Composite{T}})(; kwargs...) where {T &lt;: Tuple}
+    types = fieldtypes(T)
+    known = Set(Iterators.flatten(fieldnames.(types)))
+    unknown = setdiff(keys(kwargs), known)
+    isempty(unknown) || error(&quot;unknown arguments: $(join(unknown, &quot;, &quot;))&quot;)
+    return Composite{T}(map(types) do P
+        P(; (k =&gt; v for (k, v) in kwargs if hasfield(P, k))...)
+    end)
+end
+
+&quot;&quot;&quot;
+    model_type(roots::Type...)
+
+The `Composite` type for the closure of `roots`.
+&quot;&quot;&quot;
+function model_type(roots::Type...)
+    components = closure(roots...)
+    names = collect(Iterators.flatten(fieldnames.(components)))
+    duplicate = [n for n in unique(names) if count(==(n), names) &gt; 1]
+    isempty(duplicate) || error(&quot;field names defined by more than one component: $(duplicate)&quot;)
+    return Composite{Tuple{components...}}
+end</code></pre><h2 id="An-elemental-example"><a class="docs-heading-anchor" href="#An-elemental-example">An elemental example</a><a id="An-elemental-example-1"></a><a class="docs-heading-anchor-permalink" href="#An-elemental-example" title="Permalink"></a></h2><p>A small diamond: <code>Double</code> and <code>Square</code> both depend on a source of a value, and <code>Sum</code> depends on both. The source is a role, <code>AbstractSource</code>, with two implementations, <code>Constant</code> (the default) and <code>Ramp</code>. Every component has a <code>value</code> method that dispatches on its own type.</p><div class="mermaid">flowchart TD
+    Sum --&gt; Double --&gt; Source[AbstractSource]
+    Sum --&gt; Square --&gt; Source
+    Constant -. implements .-&gt; Source
+    Ramp -. implements .-&gt; Source</div><pre><code class="language-julia hljs">#| file: examples/composition/elemental.jl
+include(&quot;composition.jl&quot;)
+using .Composition
+import .Composition: requires, default_implementation
+using Test
+
+&lt;&lt;elemental-components&gt;&gt;
+&lt;&lt;elemental-run&gt;&gt;</code></pre><p>The role is an abstract type, and <code>value</code> is the function every component implements.</p><pre><code class="language-julia hljs">#| id: elemental-components
+abstract type AbstractSource end
+function value end
+
+module Constant
+    import ..AbstractSource, ..value
+    @kwdef struct Input &lt;: AbstractSource
+        c::Float64 = 1.0
+    end
+    value(s::Input, model) = s.c
+end
+
+module Ramp
+    import ..AbstractSource, ..value
+    @kwdef struct Input &lt;: AbstractSource
+        slope::Float64 = 1.0
+        x::Float64 = 0.0
+    end
+    value(s::Input, model) = s.slope * s.x
+end
+
+default_implementation(::Type{AbstractSource}) = Constant.Input</code></pre><p><code>Double</code> and <code>Square</code> require the role, not a specific implementation, and find it with <code>component</code>.</p><pre><code class="language-julia hljs">#| id: elemental-components
+module Double
+    import ..AbstractSource, ..value, ..requires
+    using ..Composition: component
+    @kwdef struct Input
+        factor::Float64 = 2.0
+    end
+    requires(::Type{Input}) = (AbstractSource,)
+    value(d::Input, model) = d.factor * value(component(model, AbstractSource), model)
+end
+
+module Square
+    import ..AbstractSource, ..value, ..requires
+    using ..Composition: component
+    struct Input end
+    requires(::Type{Input}) = (AbstractSource,)
+    value(::Input, model) = value(component(model, AbstractSource), model)^2
+end
+
+module Sum
+    import ..value, ..requires
+    using ..Composition: component
+    import ..Double, ..Square
+    struct Input end
+    requires(::Type{Input}) = (Double.Input, Square.Input)
+    value(::Input, model) =
+        value(component(model, Double.Input), model) +
+        value(component(model, Square.Input), model)
+end</code></pre><p>Selecting only <code>Sum</code> is enough: the closure includes the source once, even though two components require it.</p><pre><code class="language-julia hljs">#| id: elemental-run
+@show closure(Sum.Input)
+
+const Model = model_type(Sum.Input)
+m = Model(c = 3.0, factor = 10.0)
+@show m
+@show m.c m.factor
+@show value(component(m, Sum.Input), m)</code></pre><pre><code class="nohighlight hljs">closure(Sum.Input) = (Main.Constant.Input, Main.Double.Input, Main.Square.Input, Main.Sum.Input)
+m = Composite(Main.Constant.Input(3.0), Main.Double.Input(10.0), Main.Square.Input(), Main.Sum.Input())
+m.c = 3.0
+m.factor = 10.0
+value(component(m, Sum.Input), m) = 39.0</code></pre><p>To substitute the source, select <code>Ramp</code> explicitly. Both branches of the diamond now share the <code>Ramp</code>: <span>$2 \cdot 3 + 3^2 = 15$</span>.</p><pre><code class="language-julia hljs">#| id: elemental-run
+const RampModel = model_type(Sum.Input, Ramp.Input)
+@show closure(Sum.Input, Ramp.Input)
+r = RampModel(slope = 2.0, x = 1.5)
+@show value(component(r, Sum.Input), r)</code></pre><pre><code class="nohighlight hljs">closure(Sum.Input, Ramp.Input) = (Main.Ramp.Input, Main.Double.Input, Main.Square.Input, Main.Sum.Input)
+value(component(r, Sum.Input), r) = 15.0</code></pre><p>Property access and the whole <code>value</code> computation are type-stable. Mistakes are caught when the model is built: an unknown argument, or two components filling the same role.</p><pre><code class="language-julia hljs">#| id: elemental-run
+get_c(m) = m.c
+get_slope(m) = m.slope
+@inferred get_c(m)
+@inferred get_slope(r)
+@inferred value(component(r, Sum.Input), r)
+
+@test_throws ErrorException Model(colour = :red)
+@test_throws ErrorException model_type(Sum.Input, Ramp.Input, Constant.Input)
+println(&quot;all checks passed&quot;)</code></pre><h2 id="Porting-the-spring-example"><a class="docs-heading-anchor" href="#Porting-the-spring-example">Porting the spring example</a><a id="Porting-the-spring-example-1"></a><a class="docs-heading-anchor-permalink" href="#Porting-the-spring-example" title="Permalink"></a></h2><p>Here is the <a href="../20-example/#Example">spring example</a> on top of <code>Composition</code>. The structure stays the same: a <code>Time</code> component, a <code>Spring</code> component that depends on it, and a model. The differences:</p><ul><li><code>Spring</code> declares its dependency with <code>requires</code> instead of <code>@mixin</code>.</li><li><code>initial_state</code> and <code>step!</code> are generic functions that dispatch on the component (the first argument). The composite versions loop over the parts in dependency order, which replaces <code>@constructor</code> and the hand-written <code>Model.step!</code>.</li><li>The model is a single line, <code>model_type(Spring.Input)</code>.</li></ul><pre><code class="language-julia hljs">#| file: examples/composition/spring.jl
+include(&quot;composition.jl&quot;)
+using .Composition
+import .Composition: requires
+using Unitful
+using CairoMakie
+
+&lt;&lt;spring-common&gt;&gt;
+&lt;&lt;spring-time&gt;&gt;
+&lt;&lt;spring-spring&gt;&gt;
+&lt;&lt;spring-damping&gt;&gt;
+&lt;&lt;spring-run&gt;&gt;</code></pre><p>The common module defines the two generic functions, with a no-op default for components that have no state or don&#39;t step.</p><pre><code class="language-julia hljs">#| id: spring-common
+module Common
+    using ..Composition: Composite, parts, map_components
+
+    &quot;&quot;&quot;
+        initial_state(part, input)
+
+    The initial state of a single component, or `nothing` if it has no state.
+    &quot;&quot;&quot;
+    initial_state(part, input) = nothing
+    initial_state(input::Composite) = map_components(p -&gt; initial_state(p, input), input)
+
+    &quot;&quot;&quot;
+        step!(part, input, state)
+
+    Advance the state of a single component. Components step in dependency order.
+    &quot;&quot;&quot;
+    step!(part, input, state) = nothing
+    step!(input::Composite, state) = foreach(p -&gt; step!(p, input, state), parts(input))
+
+    export initial_state, step!
+end</code></pre><p>Each component now has its own <code>Input</code> and <code>State</code> types. Methods take the component&#39;s own part as first argument for dispatch, and the full composite <code>input</code> and <code>state</code> to reach other components&#39; fields.</p><pre><code class="language-julia hljs">#| id: spring-time
+module Time
+    using Unitful
+    import ..Common: initial_state, step!
+
+    @kwdef struct Input
+        t_step::typeof(1.0u&quot;s&quot;)
+        t_end::typeof(1.0u&quot;s&quot;)
+    end
+
+    mutable struct State
+        time::typeof(1.0u&quot;s&quot;)
+    end
+
+    initial_state(::Input, input) = State(0.0u&quot;s&quot;)
+    step!(::Input, input, state) = (state.time += input.t_step)
+
+    function run(input)
+        s = initial_state(input)
+        Channel() do ch
+            while s.time &lt; input.t_end
+                step!(input, s)
+                put!(ch, deepcopy(s))
+            end
+        end
+    end
+end</code></pre><pre><code class="language-julia hljs">#| id: spring-spring
+module Spring
+    using Unitful
+    import ..Common: initial_state, step!
+    import ..requires
+    import ..Time
+
+    @kwdef struct Input
+        spring_constant::typeof(1.0u&quot;s^-2&quot;)
+        initial_position::typeof(1.0u&quot;m&quot;)
+    end
+
+    mutable struct State
+        position::typeof(1.0u&quot;m&quot;)
+        velocity::typeof(1.0u&quot;m/s&quot;)
+    end
+
+    requires(::Type{Input}) = (Time.Input,)
+
+    initial_state(::Input, input) = State(input.initial_position, 0.0u&quot;m/s&quot;)
+
+    function step!(::Input, input, state)
+        delta_v = -input.spring_constant * state.position
+        state.position += state.velocity * input.t_step
+        state.velocity += delta_v * input.t_step
+    end
+end</code></pre><p>The original <code>Model.step!</code> stepped the spring before the time. Here the time steps first, because it is a dependency. The spring doesn&#39;t read the time, so the result is the same: running both versions gives identical positions.</p><h3 id="Extending-from-outside"><a class="docs-heading-anchor" href="#Extending-from-outside">Extending from outside</a><a id="Extending-from-outside-1"></a><a class="docs-heading-anchor-permalink" href="#Extending-from-outside" title="Permalink"></a></h3><p>A new component doesn&#39;t need anything from the namespaces of the components it builds on, other than the names it uses. <code>Damping</code> is written as if it lived in a separate package, referring to everything by absolute path. Selecting <code>Damping</code> pulls in <code>Spring</code>, and through it <code>Time</code>.</p><pre><code class="language-julia hljs">#| id: spring-damping
+module Damping
+    using Unitful
+    import Main.Composition: requires
+    import Main.Common: step!
+    import Main.Spring
+
+    @kwdef struct Input
+        damping::typeof(1.0u&quot;s^-1&quot;)
+    end
+
+    requires(::Type{Input}) = (Spring.Input,)
+
+    step!(::Input, input, state) =
+        (state.velocity -= input.damping * state.velocity * input.t_step)
+end</code></pre><pre><code class="language-julia hljs">#| id: spring-run
+const Model = model_type(Spring.Input)
+const DampedModel = model_type(Damping.Input)
+@show closure(Damping.Input)
+
+parameters = (
+    t_step = 0.001u&quot;s&quot;,
+    t_end = 1.0u&quot;s&quot;,
+    spring_constant = 250.0u&quot;s^-2&quot;,
+    initial_position = 1.0u&quot;m&quot;,
+)
+
+function plot_result()
+    output = Time.run(Model(; parameters...)) |&gt; collect
+    damped = Time.run(DampedModel(; parameters..., damping = 3.0u&quot;s^-1&quot;)) |&gt; collect
+
+    fig = Figure()
+    ax = Axis(fig[1, 1]; xlabel = &quot;time [s]&quot;, ylabel = &quot;position [m]&quot;)
+    for (label, run) in [&quot;spring&quot; =&gt; output, &quot;damped spring&quot; =&gt; damped]
+        lines!(ax, [s.time for s in run] ./ u&quot;s&quot;, [s.position for s in run] ./ u&quot;m&quot;;
+               label = label)
+    end
+    axislegend(ax)
+    save(&quot;docs/src/fig/composition-spring.svg&quot;, fig)
+end
+
+plot_result()</code></pre><pre><code class="nohighlight hljs">closure(Damping.Input) = (Main.Time.Input, Main.Spring.Input, Main.Damping.Input)</code></pre><p><img src="../fig/composition-spring.svg" alt="Spring, with and without damping"/></p><h2 id="Compared-to-@compose"><a class="docs-heading-anchor" href="#Compared-to-@compose">Compared to <code>@compose</code></a><a id="Compared-to-@compose-1"></a><a class="docs-heading-anchor-permalink" href="#Compared-to-@compose" title="Permalink"></a></h2><p>What stays the same:</p><ul><li><strong>Diamonds and transitive closure.</strong> A model names only the components it needs directly, and shared dependencies appear once.</li><li><strong>A flat user interface.</strong> Models are still constructed with flat keyword arguments, and code still reads <code>input.t_step</code>.</li></ul><p>What changes:</p><ul><li><strong>Components are types, not modules.</strong> Each part keeps its own type, so behaviour is selected by dispatch instead of <code>@for_each</code> over module names.</li><li><strong>Substitution through roles.</strong> A component can depend on a role, and any component implementing it fills the role for every dependant at once (see #4).</li><li><strong>No code generation from stored syntax.</strong> There is no <code>Core.eval</code> of parent ASTs, and no copied <code>using</code> statements, so components can be defined anywhere (see #16).</li><li><strong>Ordinary Julia tooling applies.</strong> Struct definitions are written out where they are defined, so they can be found, documented and revised like any other struct.</li></ul><p>Limitations of this prototype:</p><ul><li><strong>Field names must be unique across a model.</strong> Forwarding needs to know which part owns a name. <code>model_type</code> checks this.</li><li><strong>One role per component.</strong> Roles are abstract types, so a component can implement only one. Traits would lift this restriction.</li><li><strong>Dependency order is the only order.</strong> <code>step!</code> runs components in dependency order. A model that needs a different order defines its own <code>step!</code>, as <code>@compose</code> models do now.</li><li><strong>No per-item records.</strong> Records that are composed per item, like CarboKitten&#39;s facies, would be vectors of composites. They aren&#39;t covered here.</li></ul><script type="module">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/+esm';
+mermaid.initialize({
+    startOnLoad: true,
+    theme: "neutral"
+});
+</script></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../40-studies/">« Etudes in Macro Programming</a><a class="docs-footer-nextpage" href="../45-passes/">Macro passes »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Tuesday 3 November 2026 15:21">Tuesday 3 November 2026</span>. Using Julia version 1.10.13.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

@@ -1,19 +1,50 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Implementation · ModuleMixins.jl</title><meta name="title" content="Implementation · ModuleMixins.jl"/><meta property="og:title" content="Implementation · ModuleMixins.jl"/><meta property="twitter:title" content="Implementation · ModuleMixins.jl"/><meta name="description" content="Documentation for ModuleMixins.jl."/><meta property="og:description" content="Documentation for ModuleMixins.jl."/><meta property="twitter:description" content="Documentation for ModuleMixins.jl."/><meta property="og:url" content="https://jhidding.github.io/ModuleMixins.jl/50-implementation/"/><meta property="twitter:url" content="https://jhidding.github.io/ModuleMixins.jl/50-implementation/"/><link rel="canonical" href="https://jhidding.github.io/ModuleMixins.jl/50-implementation/"/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.63.2/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../">ModuleMixins.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">ModuleMixins</a></li><li><a class="tocitem" href="../10-introduction/">Introduction</a></li><li><a class="tocitem" href="../20-example/">Example</a></li><li><a class="tocitem" href="../30-blog/">Objects, Inheritance and Modules in Julia</a></li><li><a class="tocitem" href="../40-studies/">Etudes in Macro Programming</a></li><li><a class="tocitem" href="../45-passes/">Macro passes</a></li><li class="is-active"><a class="tocitem" href>Implementation</a><ul class="internal"><li><a class="tocitem" href="#Prelude"><span>Prelude</span></a></li><li><a class="tocitem" href="#Mixin-Pass"><span>Mixin Pass</span></a></li><li><a class="tocitem" href="#Structure-of-structs"><span>Structure of structs</span></a></li><li><a class="tocitem" href="#@compose"><span><code>@compose</code></span></a></li><li><a class="tocitem" href="#Constructors"><span>Constructors</span></a></li><li><a class="tocitem" href="#For-each"><span>For-each</span></a></li></ul></li><li><a class="tocitem" href="../90-contributing/">Contributing guidelines</a></li><li><a class="tocitem" href="../91-developer/">Developer documentation</a></li><li><a class="tocitem" href="../95-reference/">Reference</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Implementation</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Implementation</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/jhidding/ModuleMixins.jl/blob/main/docs/src/50-implementation.md#" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Implementation"><a class="docs-heading-anchor" href="#Implementation">Implementation</a><a id="Implementation-1"></a><a class="docs-heading-anchor-permalink" href="#Implementation" title="Permalink"></a></h1><h2 id="Prelude"><a class="docs-heading-anchor" href="#Prelude">Prelude</a><a id="Prelude-1"></a><a class="docs-heading-anchor-permalink" href="#Prelude" title="Permalink"></a></h2><pre><code class="language-julia hljs">#| file: src/ModuleMixins.jl
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Implementation · ModuleMixins.jl</title><meta name="title" content="Implementation · ModuleMixins.jl"/><meta property="og:title" content="Implementation · ModuleMixins.jl"/><meta property="twitter:title" content="Implementation · ModuleMixins.jl"/><meta name="description" content="Documentation for ModuleMixins.jl."/><meta property="og:description" content="Documentation for ModuleMixins.jl."/><meta property="twitter:description" content="Documentation for ModuleMixins.jl."/><meta property="og:url" content="https://jhidding.github.io/ModuleMixins.jl/50-implementation/"/><meta property="twitter:url" content="https://jhidding.github.io/ModuleMixins.jl/50-implementation/"/><link rel="canonical" href="https://jhidding.github.io/ModuleMixins.jl/50-implementation/"/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.63.2/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../">ModuleMixins.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">ModuleMixins</a></li><li><a class="tocitem" href="../10-introduction/">Introduction</a></li><li><a class="tocitem" href="../20-example/">Example</a></li><li><a class="tocitem" href="../30-blog/">Objects, Inheritance and Modules in Julia</a></li><li><a class="tocitem" href="../40-studies/">Etudes in Macro Programming</a></li><li><a class="tocitem" href="../41-composition/">Composition by closure</a></li><li><a class="tocitem" href="../45-passes/">Macro passes</a></li><li class="is-active"><a class="tocitem" href>Implementation</a><ul class="internal"><li><a class="tocitem" href="#Prelude"><span>Prelude</span></a></li><li><a class="tocitem" href="#Mixin-Pass"><span>Mixin Pass</span></a></li><li><a class="tocitem" href="#Structure-of-structs"><span>Structure of structs</span></a></li><li><a class="tocitem" href="#@compose"><span><code>@compose</code></span></a></li><li><a class="tocitem" href="#Templates"><span>Templates</span></a></li><li><a class="tocitem" href="#Constructors"><span>Constructors</span></a></li><li><a class="tocitem" href="#For-each"><span>For-each</span></a></li></ul></li><li><a class="tocitem" href="../90-contributing/">Contributing guidelines</a></li><li><a class="tocitem" href="../91-developer/">Developer documentation</a></li><li><a class="tocitem" href="../95-reference/">Reference</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Implementation</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Implementation</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/jhidding/ModuleMixins.jl/blob/main/docs/src/50-implementation.md#" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Implementation"><a class="docs-heading-anchor" href="#Implementation">Implementation</a><a id="Implementation-1"></a><a class="docs-heading-anchor-permalink" href="#Implementation" title="Permalink"></a></h1><h2 id="Prelude"><a class="docs-heading-anchor" href="#Prelude">Prelude</a><a id="Prelude-1"></a><a class="docs-heading-anchor-permalink" href="#Prelude" title="Permalink"></a></h2><pre><code class="language-julia hljs">#| file: src/ModuleMixins.jl
 module ModuleMixins
+
+module Common
+    &quot;&quot;&quot;
+    Generic function for converting syntax data objects to expressions.
+    &quot;&quot;&quot;
+    function to_expression end
+
+    &quot;&quot;&quot;
+        eval_to_expression(mod::Module, obj)
+
+    Generic function for converting syntax data objects to expressions,
+    where parts of expressions need to be evaluated in a given module.
+
+    Defaults to calling `to_expression`, dropping the `mod` argument.
+    &quot;&quot;&quot;
+    eval_to_expression(mod::Module, obj) = to_expression(obj)
+
+    &quot;&quot;&quot;
+        eval_to_expression(mod::Module)
+
+    Currying version of `eval_to_expression`.
+    &quot;&quot;&quot;
+    eval_to_expression(mod::Module) = obj -&gt; eval_to_expression(mod, obj)
+
+    &quot;&quot;&quot;
+    Get name attribute from syntax data object.
+    &quot;&quot;&quot;
+    name(obj) = obj.name
+end
 
 include(&quot;Passes.jl&quot;)
 include(&quot;Spec.jl&quot;)
+include(&quot;Templates.jl&quot;)
 include(&quot;Mixins.jl&quot;)
 include(&quot;Structs.jl&quot;)
 include(&quot;Constructors.jl&quot;)
-include(&quot;Lambda.jl&quot;)
 
 using MacroTools: @capture, postwalk
+import .Common: name
 import .Passes: Pass, pass, no_match, walk
 import .Mixins: MixinPass
 import .Structs: Struct, CollectStructPass, define_struct
 import .Constructors: Constructor, CollectConstructorPass, define_constructor
+import .Templates: make_parameter, ModuleTemplate
 
 export @compose, @for_each
 
@@ -25,47 +56,63 @@ using Test
 
 @testset &quot;ModuleMixins.jl&quot; begin
     include(&quot;SpecSpec.jl&quot;)
+    include(&quot;TemplatesSpec.jl&quot;)
     include(&quot;PassesSpec.jl&quot;)
     include(&quot;MixinsSpec.jl&quot;)
     include(&quot;StructsSpec.jl&quot;)
     include(&quot;ConstructorsSpec.jl&quot;)
     include(&quot;ComposeSpec.jl&quot;)
-end</code></pre><h2 id="Mixin-Pass"><a class="docs-heading-anchor" href="#Mixin-Pass">Mixin Pass</a><a id="Mixin-Pass-1"></a><a class="docs-heading-anchor-permalink" href="#Mixin-Pass" title="Permalink"></a></h2><p>The <code>MixinPass</code> now filters for appearances of the <code>@mixin &lt;Component&gt;</code> syntax and transforms them into <code>using ..&lt;Component&gt;</code>. This assumes that the symbols used are visible in the parent module.</p><pre><code class="language-julia hljs">#| file: src/Mixins.jl
+    include(&quot;TemplateMixinSpec.jl&quot;)
+end</code></pre><h2 id="Mixin-Pass"><a class="docs-heading-anchor" href="#Mixin-Pass">Mixin Pass</a><a id="Mixin-Pass-1"></a><a class="docs-heading-anchor-permalink" href="#Mixin-Pass" title="Permalink"></a></h2><p>The <code>MixinPass</code> now filters for appearances of the <code>@mixin &lt;Component&gt;</code> syntax and transforms them into <code>using ..&lt;Component&gt;</code>. This assumes that the symbols used are visible in the parent module. In the case of a template mixin, the template instantiation is created with a unique name (using <code>gensym</code>) and imported aliased to the original name.</p><pre><code class="language-julia hljs">#| file: src/Mixins.jl
 module Mixins
 
 using MacroTools: @capture
+import ..Common: to_expression, eval_to_expression, name
 import ..Passes: Pass, pass, no_match, walk
+using ..Templates: Argument, eval_argument, bind
+
+abstract type AbstractMixin end
+
+struct MixinModule &lt;: AbstractMixin
+    name::Symbol
+end
+
+to_expression(t::MixinModule) = :(using ..$(t.name))
+
+&lt;&lt;template-expansion&gt;&gt;
 
 @kwdef struct MixinPass &lt;: Pass
-    items::Vector{Symbol}
+    environment::Module
+    items::Vector{AbstractMixin}
 end
 
 function pass(m::MixinPass, expr)
-    @capture(expr, @mixin deps_) || return no_match
+    @capture(expr, @mixin raw_deps_) || return no_match
 
-    if @capture(deps, (multiple_deps__,))
-        append!(m.items, multiple_deps)
-        :(
-            begin
-                $([:(using ..$d) for d in multiple_deps]...)
-            end
-        )
+    deps = if @capture(raw_deps, (multiple_deps__,))
+        multiple_deps
     else
-        push!(m.items, deps)
-        :(using ..$deps)
+        [raw_deps]
     end
+
+    targets = deps .|&gt; parse_mixin_arg
+    append!(m.items, targets)
+    imports = targets .|&gt; eval_to_expression(m.environment)
+    return :(begin
+        $(imports...)
+    end)
 end
 
 macro spec_using(mod)
-    @assert @capture(mod, module name_ body__ end)
+    @assert @capture(mod, module mod_name_ body__ end)
 
-    parents = MixinPass([])
+    parents = MixinPass(__module__, [])
     clean_body = walk(parents, body)
 
-    esc(Expr(:toplevel, :(module $name
+    esc(Expr(:toplevel, :(module $mod_name
         $(clean_body...)
         const AST = $body
-        const PARENTS = [$(QuoteNode.(parents.items)...)]
+        const PARENTS = [$(QuoteNode.(name.(parents.items))...)]
     end)))
 end
 
@@ -324,37 +371,39 @@ Creates a new composable module `Name`. Structs inside this module are
 merged with those of the same name in `Parents`.
 &quot;&quot;&quot;
 macro compose(mod)
-    @assert @capture(mod, module name_ body__ end)
+    @assert @capture(mod, module mod_name_ body__ end)
+
+    &lt;&lt;catch-template-definition&gt;&gt;
 
     mixins = Symbol[]
     mixin_tree = IdDict{Symbol, Vector{Symbol}}()
-    parents = MixinPass([])
+    parents = MixinPass(__module__, [])
     usings = CollectUsingPass([])
     consts = CollectConstPass([])
     struct_items = IdDict{Symbol, Struct}()
     constructor_items = IdDict{Symbol, Constructor}()
 
-    function mixin(expr; name=name)
-        structs = CollectStructPass(struct_items, name)
+    function mixin(expr; mod_name=mod_name)
+        structs = CollectStructPass(struct_items, mod_name)
         constructors = CollectConstructorPass(constructor_items)
-        parents = MixinPass([])
+        parents = MixinPass(__module__, [])
         pass1 = walk(parents, expr)
-        mixin_tree[name] = parents.items
+        mixin_tree[mod_name] = name.(parents.items)
         for p in parents.items
-            p in mixins &amp;&amp; continue
-            push!(mixins, p)
-            parent_expr = Core.eval(__module__, :($(p).AST))
-            mixin(parent_expr; name=p)
+            name(p) in mixins &amp;&amp; continue
+            push!(mixins, name(p))
+            parent_expr = Core.eval(__module__, :($(name(p)).AST))
+            mixin(parent_expr; mod_name=name(p))
         end
         walk(usings + consts + structs + constructors, pass1)
     end
 
-    fields = CollectStructPass(IdDict{Symbol,Struct}(), name)
+    fields = CollectStructPass(IdDict{Symbol,Struct}(), mod_name)
     walk(fields, body)
 
     clean_body = mixin(body)
 
-    esc(Expr(:toplevel, :(module $name
+    esc(Expr(:toplevel, :(module $mod_name
         const AST = $body
         const PARENTS = [$(QuoteNode.(mixins)...)]
         const MIXIN_TREE = $(mixin_tree)
@@ -367,6 +416,68 @@ macro compose(mod)
             for c in values(constructor_items))...)
         $(clean_body...)
     end)))
+end</code></pre><h2 id="Templates"><a class="docs-heading-anchor" href="#Templates">Templates</a><a id="Templates-1"></a><a class="docs-heading-anchor-permalink" href="#Templates" title="Permalink"></a></h2><p>Templates are defined by adding an argument list to a <code>@compose module</code> definition, made possible by the following catch in the <code>@compose</code> macro.</p><pre><code class="language-julia hljs">#| id: catch-template-definition
+if !isempty(body) &amp;&amp; @capture(body[1], {raw_parameters__})
+    parameters = raw_parameters .|&gt; make_parameter
+    template = ModuleTemplate(mod_name, __module__, parameters, body[2:end])
+    return esc(Expr(:toplevel, :(const $mod_name = $template)))
+end</code></pre><p>Then the <code>@mixin</code> pass expands templates. A module with a unique name is generated in the parent space and imported into the mixin by the original template name.</p><pre><code class="language-julia hljs">#| id: template-expansion
+struct MixinTemplate &lt;: AbstractMixin
+    instance_name::Symbol
+    template_name::Symbol
+    arguments::Vector{Any}
+end
+
+name(t::MixinTemplate) = t.instance_name
+
+function eval_to_expression(mod::Module, t::MixinTemplate)
+    template = Core.eval(mod, t.template_name)
+
+    arguments = t.arguments .|&gt; eval_argument(mod)
+    bound_vars = bind(template.parameters, arguments)
+
+    module_expr = Expr(:toplevel, :(@compose module $(t.instance_name)
+        $(to_expression.(bound_vars)...)
+        $(template.body...)
+    end))
+    @eval(template.environment, $(module_expr))
+
+    return :(using ..$(nameof(template.environment)): $(t.instance_name) as $(t.template_name))
+end
+
+function parse_mixin_arg(expr)
+    if @capture(expr, name_{raw_arguments__})
+        instance_name = gensym(name)
+        return MixinTemplate(instance_name, name, raw_arguments)
+    elseif expr isa Symbol
+        return MixinModule(expr)
+    end
+    error(&quot;illegal mixin target: $(expr)&quot;)
+end</code></pre><h3 id="Tests"><a class="docs-heading-anchor" href="#Tests">Tests</a><a id="Tests-1"></a><a class="docs-heading-anchor-permalink" href="#Tests" title="Permalink"></a></h3><pre><code class="language-julia hljs">#| file: test/TemplateMixinSpec.jl
+module TMSpec
+    using ModuleMixins: @compose
+    @compose module A{T}
+        struct S
+            x::T
+        end
+    end
+
+    @compose module B
+        @mixin A{Int}
+    end
+
+    @compose module C
+        @mixin A{Float64}
+    end
+
+    export A, B, C
+end
+
+@testset &quot;ModuleMixins.TemplateMixins&quot; begin
+    using .TMSpec
+
+    @test fieldtype(B.S, 1) === Int
+    @test fieldtype(C.S, 1) === Float64
 end</code></pre><h2 id="Constructors"><a class="docs-heading-anchor" href="#Constructors">Constructors</a><a id="Constructors-1"></a><a class="docs-heading-anchor-permalink" href="#Constructors" title="Permalink"></a></h2><pre><code class="language-julia hljs">#| file: src/Constructors.jl
 module Constructors
 
@@ -569,9 +680,9 @@ macro for_each(_fun, _lst)
     esc(:(begin
         $((replace_call_parent(p) for p in lst)...)
     end))
-end</code></pre><script type="module">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+end</code></pre><script type="module">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/+esm';
 mermaid.initialize({
     startOnLoad: true,
     theme: "neutral"
 });
-</script></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../45-passes/">« Macro passes</a><a class="docs-footer-nextpage" href="../90-contributing/">Contributing guidelines »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Tuesday 15 September 2026 15:22">Tuesday 15 September 2026</span>. Using Julia version 1.10.12.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+</script></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../45-passes/">« Macro passes</a><a class="docs-footer-nextpage" href="../90-contributing/">Contributing guidelines »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Tuesday 3 November 2026 15:21">Tuesday 3 November 2026</span>. Using Julia version 1.10.13.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

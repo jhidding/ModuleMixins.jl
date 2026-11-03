@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Etudes in Macro Programming · ModuleMixins.jl</title><meta name="title" content="Etudes in Macro Programming · ModuleMixins.jl"/><meta property="og:title" content="Etudes in Macro Programming · ModuleMixins.jl"/><meta property="twitter:title" content="Etudes in Macro Programming · ModuleMixins.jl"/><meta name="description" content="Documentation for ModuleMixins.jl."/><meta property="og:description" content="Documentation for ModuleMixins.jl."/><meta property="twitter:description" content="Documentation for ModuleMixins.jl."/><meta property="og:url" content="https://jhidding.github.io/ModuleMixins.jl/40-studies/"/><meta property="twitter:url" content="https://jhidding.github.io/ModuleMixins.jl/40-studies/"/><link rel="canonical" href="https://jhidding.github.io/ModuleMixins.jl/40-studies/"/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.63.2/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../">ModuleMixins.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">ModuleMixins</a></li><li><a class="tocitem" href="../10-introduction/">Introduction</a></li><li><a class="tocitem" href="../20-example/">Example</a></li><li><a class="tocitem" href="../30-blog/">Objects, Inheritance and Modules in Julia</a></li><li class="is-active"><a class="tocitem" href>Etudes in Macro Programming</a><ul class="internal"><li><a class="tocitem" href="#@spec"><span><code>@spec</code></span></a></li><li><a class="tocitem" href="#@spec_mixin"><span><code>@spec_mixin</code></span></a></li><li><a class="tocitem" href="#Module-Templates"><span>Module Templates</span></a></li></ul></li><li><a class="tocitem" href="../45-passes/">Macro passes</a></li><li><a class="tocitem" href="../50-implementation/">Implementation</a></li><li><a class="tocitem" href="../90-contributing/">Contributing guidelines</a></li><li><a class="tocitem" href="../91-developer/">Developer documentation</a></li><li><a class="tocitem" href="../95-reference/">Reference</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Etudes in Macro Programming</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Etudes in Macro Programming</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/jhidding/ModuleMixins.jl/blob/main/docs/src/40-studies.md#" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Etudes-in-Macro-Programming"><a class="docs-heading-anchor" href="#Etudes-in-Macro-Programming">Etudes in Macro Programming</a><a id="Etudes-in-Macro-Programming-1"></a><a class="docs-heading-anchor-permalink" href="#Etudes-in-Macro-Programming" title="Permalink"></a></h1><p>The way <code>ModuleMixins</code> is implemented, is that we start out with something relatively simple, and build out from that. This means there will be some redudant code. Macros are hard to engineer, this takes you through the entire process.</p><p>Before we explain the full <code>@compose</code> macro, we can do some finger exercises to understand the mechanisms behind its implementation.</p><h2 id="@spec"><a class="docs-heading-anchor" href="#@spec"><code>@spec</code></a><a id="@spec-1"></a><a class="docs-heading-anchor-permalink" href="#@spec" title="Permalink"></a></h2><p>The <code>@spec</code> macro creates a new module, and stores its own AST inside that module.</p><details class="admonition is-details" id="src/Spec.jl-22add4f76977ba80"><summary class="admonition-header">src/Spec.jl<a class="admonition-anchor" href="#src/Spec.jl-22add4f76977ba80" title="Permalink"></a></summary><div class="admonition-body"><pre><code class="language-julia hljs">#| file: src/Spec.jl
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Etudes in Macro Programming · ModuleMixins.jl</title><meta name="title" content="Etudes in Macro Programming · ModuleMixins.jl"/><meta property="og:title" content="Etudes in Macro Programming · ModuleMixins.jl"/><meta property="twitter:title" content="Etudes in Macro Programming · ModuleMixins.jl"/><meta name="description" content="Documentation for ModuleMixins.jl."/><meta property="og:description" content="Documentation for ModuleMixins.jl."/><meta property="twitter:description" content="Documentation for ModuleMixins.jl."/><meta property="og:url" content="https://jhidding.github.io/ModuleMixins.jl/40-studies/"/><meta property="twitter:url" content="https://jhidding.github.io/ModuleMixins.jl/40-studies/"/><link rel="canonical" href="https://jhidding.github.io/ModuleMixins.jl/40-studies/"/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.63.2/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../">ModuleMixins.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">ModuleMixins</a></li><li><a class="tocitem" href="../10-introduction/">Introduction</a></li><li><a class="tocitem" href="../20-example/">Example</a></li><li><a class="tocitem" href="../30-blog/">Objects, Inheritance and Modules in Julia</a></li><li class="is-active"><a class="tocitem" href>Etudes in Macro Programming</a><ul class="internal"><li><a class="tocitem" href="#@spec"><span><code>@spec</code></span></a></li><li><a class="tocitem" href="#@spec_mixin"><span><code>@spec_mixin</code></span></a></li><li><a class="tocitem" href="#Module-Templates"><span>Module Templates</span></a></li></ul></li><li><a class="tocitem" href="../41-composition/">Composition by closure</a></li><li><a class="tocitem" href="../45-passes/">Macro passes</a></li><li><a class="tocitem" href="../50-implementation/">Implementation</a></li><li><a class="tocitem" href="../90-contributing/">Contributing guidelines</a></li><li><a class="tocitem" href="../91-developer/">Developer documentation</a></li><li><a class="tocitem" href="../95-reference/">Reference</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Etudes in Macro Programming</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Etudes in Macro Programming</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/jhidding/ModuleMixins.jl/blob/main/docs/src/40-studies.md#" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Etudes-in-Macro-Programming"><a class="docs-heading-anchor" href="#Etudes-in-Macro-Programming">Etudes in Macro Programming</a><a id="Etudes-in-Macro-Programming-1"></a><a class="docs-heading-anchor-permalink" href="#Etudes-in-Macro-Programming" title="Permalink"></a></h1><p>The way <code>ModuleMixins</code> is implemented, is that we start out with something relatively simple, and build out from that. This means there will be some redudant code. Macros are hard to engineer, this takes you through the entire process.</p><p>Before we explain the full <code>@compose</code> macro, we can do some finger exercises to understand the mechanisms behind its implementation.</p><h2 id="@spec"><a class="docs-heading-anchor" href="#@spec"><code>@spec</code></a><a id="@spec-1"></a><a class="docs-heading-anchor-permalink" href="#@spec" title="Permalink"></a></h2><p>The <code>@spec</code> macro creates a new module, and stores its own AST inside that module.</p><details class="admonition is-details" id="src/Spec.jl-22add4f76977ba80"><summary class="admonition-header">src/Spec.jl<a class="admonition-anchor" href="#src/Spec.jl-22add4f76977ba80" title="Permalink"></a></summary><div class="admonition-body"><pre><code class="language-julia hljs">#| file: src/Spec.jl
 module Spec
 
 using MacroTools: @capture
@@ -74,73 +74,107 @@ macro spec_mixin(mod)
 
     const AST = $body
     end)))
-end</code></pre><h2 id="Module-Templates"><a class="docs-heading-anchor" href="#Module-Templates">Module Templates</a><a id="Module-Templates-1"></a><a class="docs-heading-anchor-permalink" href="#Module-Templates" title="Permalink"></a></h2><p>How cool it would be, if we can parametrise a module. Julia rules that modules can only be defined at top-level. So we have to go by the macro route once more. First, we try to implement the desired effect in isolation.</p><p>We define a module with arguments using the <code>@lambda</code> macro.</p><pre><code class="language-julia hljs">#| file: src/Lambda.jl
-module Lambda
+end</code></pre><h2 id="Module-Templates"><a class="docs-heading-anchor" href="#Module-Templates">Module Templates</a><a id="Module-Templates-1"></a><a class="docs-heading-anchor-permalink" href="#Module-Templates" title="Permalink"></a></h2><p>How cool it would be, if we can parametrise a module. Julia rules that modules can only be defined at top-level. So we have to go by the macro route once more. First, we try to implement the desired effect in isolation.</p><p>Every module template will have a name, body and a list of parameters. Each parameter may have a default argument specified, similar to how functions in Julia can have defaults.</p><h3 id="Spec"><a class="docs-heading-anchor" href="#Spec">Spec</a><a id="Spec-1"></a><a class="docs-heading-anchor-permalink" href="#Spec" title="Permalink"></a></h3><pre><code class="language-julia hljs">#| file: test/TemplatesSpec.jl
+using ModuleMixins.Templates: @lambda, @instantiate, ModuleTemplate
+
+@lambda module TempA{T}
+    struct S
+        x::T
+    end
+end
+
+@lambda module TempB{M}
+    const X = M.X
+end
+
+module M1
+    const X = 42
+end
+
+@testset &quot;ModuleMixins.Templates&quot; begin
+    @test TempA isa ModuleTemplate
+    @instantiate TempAi = TempA{Int}
+
+    @test TempAi.T === Int
+    @test TempAi.S(4).x isa Int
+
+    @instantiate TempAf = TempA{Float64}
+
+    @test TempAf.T === Float64
+    @test TempAf.S(4).x isa Float64
+
+    @instantiate TempBM1 = TempB{M1}
+    @test TempBM1.X == 42
+end</code></pre><h3 id="Implementation"><a class="docs-heading-anchor" href="#Implementation">Implementation</a><a id="Implementation-1"></a><a class="docs-heading-anchor-permalink" href="#Implementation" title="Permalink"></a></h3><pre><code class="language-julia hljs">#| id: template-parameter
+struct Parameter
+    name::Symbol
+    default::Union{Some{Any}, Nothing}
+end
+
+name(parameter) = parameter.name
+has_default(parameter) = parameter.default !== nothing
+default(parameter) = something(parameter.default)
+
+function make_parameter(expr)
+    if @capture(expr, name_ = default_)
+        return Parameter(name, Some(default))
+    elseif expr isa Symbol
+        return Parameter(expr, nothing)
+    else
+        error(&quot;Unknown parameter syntax `$(expr)`.&quot;)
+    end
+end</code></pre><p>When arguments are passed to the template instantiation, they are either given positional (i.e. value only) or keyword style (<code>key = value</code>). When we convert a given syntax into an argument, we need to evaluate the value in the calling context.</p><pre><code class="language-julia hljs">#| id: template-argument
+struct Argument
+    name::Union{Symbol, Nothing}
+    value::Any
+end
+
+positional(argument) = argument.name === nothing
+
+eval_argument(mod) = function (expr)
+    value = if @capture(expr, name_ = value_)
+        value
+    else
+        expr
+    end
+    return Argument(name, @eval(mod, $(value)))
+end</code></pre><p>Given a list of parameters and a list of arguments, we can create a list of bound variables. Here we lay down some rules:</p><ul><li>positional arguments can never follow a keyword argument.</li><li>at the end of the binding process, we obtain a <code>name</code> / <code>value</code> pair for each parameter, in the same order as the parameters were defined.</li></ul><p>A bound variable will result in the injection of a <code>const</code> definition.</p><pre><code class="language-julia hljs">#| id: template-bound-variable
+struct BoundVariable
+    name::Symbol
+    value::Any
+end
+
+function bind(pars, args)
+    positional_args = Iterators.takewhile(positional, args) |&gt; collect
+    keyword_args = Dict(arg.name =&gt; arg for arg in args[length(positional_args)+1:end])
+    keyword_pars = pars[length(positional_args)+1:end]
+    @assert(!any(positional, values(keyword_args)))
+    positional_bindings = (BoundVariable(par.name, arg.value)
+        for (par, arg) in Iterators.zip(pars, positional_args))
+    keyword_bindings = (BoundVariable(par.name, par.name in keys(keyword_args) ?
+        keyword_args[par.name].value :
+        par.default) for par in keyword_pars)
+    bindings = Iterators.flatten(
+        (positional_bindings, keyword_bindings)) |&gt; collect
+    @assert(name.(pars) == name.(bindings))
+    return bindings
+end
+
+function to_expression(bv::BoundVariable)
+    return :(const $(bv.name) = $(bv.value))
+end</code></pre><p>We define a module with arguments using the <code>@lambda</code> macro, and create an instance with <code>@instantiate</code>.</p><pre><code class="language-julia hljs">#| file: src/Templates.jl
+module Templates
     using MacroTools: @capture
-    import ..Passes: Pass, pass, no_match, walk
+    import ..Common: to_expression
     export @lambda, @instantiate
 
-    struct Parameter
-        name::Symbol
-        has_default::Bool
-        default::Any
-    end
-
-    name(par) = par.name
-    has_default(parameter) = parameter.has_default
-
-    function make_parameter(expr)
-        if @capture(expr, name_ = default_)
-            return Parameter(name, true, default)
-        elseif expr isa Symbol
-            return Parameter(expr, false, nothing)
-        else
-            return nothing
-        end
-    end
-
-    struct Argument
-        name::Union{Symbol, Nothing}
-        value::Any
-    end
-
-    positional(argument) = argument.name === nothing
-
-    make_argument(mod) = function (expr)
-        value = if @capture(expr, name_ = value_)
-            value
-        else
-            expr
-        end
-        return Argument(name, @eval(mod, $(value)))
-    end
-
-    struct BoundVariable
-        name::Symbol
-        value::Any
-    end
-
-    function bind(pars, args)
-        positional_args = Iterators.takewhile(positional, args) |&gt; collect
-        keyword_args = Dict(arg.name =&gt; arg for arg in args[length(positional_args)+1:end])
-        keyword_pars = pars[length(positional_args)+1:end]
-        @assert(!any(positional, values(keyword_args)))
-        positional_bindings = (BoundVariable(par.name, arg.value)
-            for (par, arg) in Iterators.zip(pars, positional_args))
-        keyword_bindings = (BoundVariable(par.name, par.name in keys(keyword_args) ?
-            keyword_args[par.name].value :
-            par.default) for par in keyword_pars)
-        bindings = Iterators.flatten((positional_bindings, keyword_bindings)) |&gt; collect
-        @assert(name.(pars) == name.(bindings))
-        return bindings
-    end
-
-    function as_expression(bv::BoundVariable)
-        return :(const $(bv.name) = $(bv.value))
-    end
+    &lt;&lt;template-parameter&gt;&gt;
+    &lt;&lt;template-argument&gt;&gt;
+    &lt;&lt;template-bound-variable&gt;&gt;
 
     struct ModuleTemplate
         name::Symbol
+        environment::Module
         parameters::Vector{Parameter}
         body::Vector{Any}
     end
@@ -154,25 +188,25 @@ module Lambda
             end)))
         end
         parameters = raw_parameters .|&gt; make_parameter |&gt; filter(!isnothing) |&gt; collect
-        println(&quot;module $(name) with parameters $(parameters)&quot;)
-        template = ModuleTemplate(name, parameters, body[2:end])
-        return esc(:(const $name = $template))
+        template = ModuleTemplate(name, __module__, parameters, body[2:end])
+        return esc(Expr(:toplevel, :(const $name = $template)))
     end
 
     macro instantiate(expr)
         @assert @capture(expr, instance_name_ = template_name_{raw_arguments__})
-        arguments = raw_arguments .|&gt; make_argument(__module__)
-        template = getfield(__module__, template_name)
+        arguments = raw_arguments .|&gt; eval_argument(__module__)
+        template = @eval(__module__, $(template_name))
         bound_vars = bind(template.parameters, arguments)
-        return esc(Expr(:toplevel, :(module $(instance_name)
-            const AST = $(template.body)
-            $(as_expression.(bound_vars)...)
+        module_expr = Expr(:toplevel, :(module $(instance_name)
+            $(to_expression.(bound_vars)...)
             $(template.body...)
-        end)))
+        end))
+        result = @eval(template.environment, $(module_expr))
+        return :(using $(nameof(template.environment)).$(instance_name))
     end
-end</code></pre><script type="module">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+end</code></pre><script type="module">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/+esm';
 mermaid.initialize({
     startOnLoad: true,
     theme: "neutral"
 });
-</script></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../30-blog/">« Objects, Inheritance and Modules in Julia</a><a class="docs-footer-nextpage" href="../45-passes/">Macro passes »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Tuesday 15 September 2026 15:22">Tuesday 15 September 2026</span>. Using Julia version 1.10.12.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+</script></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../30-blog/">« Objects, Inheritance and Modules in Julia</a><a class="docs-footer-nextpage" href="../41-composition/">Composition by closure »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Tuesday 3 November 2026 15:21">Tuesday 3 November 2026</span>. Using Julia version 1.10.13.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
