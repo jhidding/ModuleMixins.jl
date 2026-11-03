@@ -522,9 +522,71 @@ What changes:
 - **No code generation from stored syntax.** There is no `Core.eval` of parent ASTs, and no copied `using` statements, so components can be defined anywhere (see #16).
 - **Ordinary Julia tooling applies.** Struct definitions are written out where they are defined, so they can be found, documented and revised like any other struct.
 
+Limitations shared with `@compose`:
+
+- **Field names must be unique across a model.** Forwarding needs to know which part owns a name, just as `@compose` needs it to merge fields. `model_type` checks this.
+- **Dependency order is the only order.** `step!` runs components in dependency order. A model that needs a different order defines its own `step!`, as `@compose` models do now.
+
+Both depend on which components end up in the model, so they can only be checked or resolved when the model is assembled.
+
 Limitations of this prototype:
 
-- **Field names must be unique across a model.** Forwarding needs to know which part owns a name. `model_type` checks this.
-- **One role per component.** Roles are abstract types, so a component can implement only one. Traits would lift this restriction.
-- **Dependency order is the only order.** `step!` runs components in dependency order. A model that needs a different order defines its own `step!`, as `@compose` models do now.
-- **No per-item records.** Records that are composed per item, like CarboKitten's facies, would be vectors of composites. They aren't covered here.
+- **One role per component.** Roles are abstract types, and a Julia struct has only one supertype, so a component can implement only one role. The role also has to be chosen where the struct is defined. Since `@compose` has no roles at all, this limits a new feature rather than losing an existing one.
+- **No per-item records.** In CarboKitten, components contribute fields not only to the top-level input but also to each facies (`Production`, `CellularAutomaton`, `Denudation` and others each define a `Facies` struct), and `@compose` merges those as well. The prototype composes a single record per model. This is the only real regression.
+
+## Lifting the limitations
+
+### Roles as traits
+
+Role membership can be a method instead of a supertype:
+
+```julia
+implements(::Type, ::Type) = false
+implements(::Type{Ramp.Input}, ::Type{AbstractSource}) = true
+implements(::Type{Ramp.Input}, ::Type{AbstractClock}) = true
+```
+
+`closure` and `component` then test `implements(C, R)` instead of `C <: R`. A component can fill any number of roles, and membership can be declared outside the module that defines the component, for example to adapt a component from another package. Two things to keep in mind:
+
+- `implements` is user-extensible, so it shouldn't be called from a `@generated` function: methods added after the generated function is defined aren't reliably seen. Instead, roles should be resolved in `model_type`, which runs at normal runtime, and the result stored in the composite type.
+- Methods can no longer dispatch on a role directly (`value(s::AbstractSource, model)`). Where that's needed, the usual Holy-trait pattern applies. In practice components find each other through `component(model, Role)`, which works the same either way.
+
+### A local, module-level macro
+
+A macro similar to `@compose` can make these extensions comfortable to use. The difference from `@compose` is that its syntax transformation is purely local: it reads only the module it's applied to and expands into ordinary method definitions (`requires`, `implements`, ...). It never inspects or re-evaluates code from parent modules. The function protocol stays the specification, and the macro is optional shorthand: a component written by hand, like `Damping` above, keeps working.
+
+```julia
+@component module Ramp
+    @implements AbstractSource AbstractClock
+    @kwdef struct Input
+        slope::Float64 = 1.0
+        x::Float64 = 0.0
+    end
+end
+
+@component module Spring
+    @mixin Time         # requires(::Type{Input}) = (Time.Input,)
+    ...
+end
+```
+
+The macro can also catch mistakes when a component is defined, such as a module without an `Input`, or a `@mixin` that names something that isn't a component.
+
+Per-item records are where the macro does more than save typing. The component that owns the collection needs a field whose element type is the composite of every component's `Facies` part. That type is only known once the model is assembled, so the struct has to be parametric. The macro can do this rewrite so users don't see the type parameter:
+
+```julia
+# written in FaciesBase
+@kwdef struct Input
+    facies::Vector{Facies} = []
+end
+
+# emitted by the macro
+@kwdef struct Input{F}
+    facies::Vector{F} = []
+end
+item_collection(::Type{<:Input}) = (:facies,)
+```
+
+In every other component that defines a `struct Facies`, the macro emits something like `item_part(::Type{Input}, ::Val{:facies}) = Facies`. `model_type` collects these parts in closure order, builds `Composite{Tuple{FaciesBase.Facies, Production.Facies, ...}}`, and substitutes it for `F`. Each `input.facies[i]` is then a composite, with flat property access and per-component dispatch, like the top-level input. Still open: constructing per-item composites from the flat per-facies arguments users pass now, and components that have no per-item part.
+
+With roles as traits and per-item records covered by the macro, the composition approach would do everything `@compose` does. Its remaining limitations would be the ones `@compose` already has.
