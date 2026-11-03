@@ -29,6 +29,20 @@ module Common
     Get name attribute from syntax data object.
     &quot;&quot;&quot;
     name(obj) = obj.name
+
+    &quot;&quot;&quot;
+        strip_syntax_version(expr)
+
+    From Julia 1.14, a `module` expression may carry the syntax version
+    of the code it was parsed from as its first argument:
+    `Expr(:module, v&quot;1.14.0&quot;, true, name, body)`. Whether it does depends
+    on the project the code lives in, not on the Julia version alone.
+    Remove the version, so that `@capture` patterns of the form
+    `module name_ body__ end` match either way.
+    &quot;&quot;&quot;
+    strip_syntax_version(expr) =
+        Meta.isexpr(expr, :module) &amp;&amp; !isempty(expr.args) &amp;&amp; expr.args[1] isa VersionNumber ?
+            Expr(:module, expr.args[2:end]...) : expr
 end
 
 include(&quot;Passes.jl&quot;)
@@ -39,7 +53,7 @@ include(&quot;Structs.jl&quot;)
 include(&quot;Constructors.jl&quot;)
 
 using MacroTools: @capture, postwalk
-import .Common: name
+import .Common: name, strip_syntax_version
 import .Passes: Pass, pass, no_match, walk
 import .Mixins: MixinPass
 import .Structs: Struct, CollectStructPass, define_struct
@@ -67,7 +81,7 @@ end</code></pre><h2 id="Mixin-Pass"><a class="docs-heading-anchor" href="#Mixin-
 module Mixins
 
 using MacroTools: @capture
-import ..Common: to_expression, eval_to_expression, name
+import ..Common: to_expression, eval_to_expression, name, strip_syntax_version
 import ..Passes: Pass, pass, no_match, walk
 using ..Templates: Argument, eval_argument, bind
 
@@ -104,7 +118,7 @@ function pass(m::MixinPass, expr)
 end
 
 macro spec_using(mod)
-    @assert @capture(mod, module mod_name_ body__ end)
+    @assert @capture(strip_syntax_version(mod), module mod_name_ body__ end)
 
     parents = MixinPass(__module__, [])
     clean_body = walk(parents, body)
@@ -371,7 +385,7 @@ Creates a new composable module `Name`. Structs inside this module are
 merged with those of the same name in `Parents`.
 &quot;&quot;&quot;
 macro compose(mod)
-    @assert @capture(mod, module mod_name_ body__ end)
+    @assert @capture(strip_syntax_version(mod), module mod_name_ body__ end)
 
     &lt;&lt;catch-template-definition&gt;&gt;
 
@@ -685,4 +699,4 @@ mermaid.initialize({
     startOnLoad: true,
     theme: "neutral"
 });
-</script></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../45-passes/">« Macro passes</a><a class="docs-footer-nextpage" href="../90-contributing/">Contributing guidelines »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Tuesday 3 November 2026 15:23">Tuesday 3 November 2026</span>. Using Julia version 1.10.13.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+</script></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../45-passes/">« Macro passes</a><a class="docs-footer-nextpage" href="../90-contributing/">Contributing guidelines »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Tuesday 3 November 2026 15:40">Tuesday 3 November 2026</span>. Using Julia version 1.10.13.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
