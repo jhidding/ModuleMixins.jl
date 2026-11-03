@@ -2,7 +2,7 @@
 module Mixins
 
 using MacroTools: @capture
-import ..Common: to_expression, eval_to_expression, name
+import ..Common: to_expression, eval_to_expression, name, strip_syntax_version
 import ..Passes: Pass, pass, no_match, walk
 using ..Templates: Argument, eval_argument, bind
 
@@ -72,7 +72,7 @@ function pass(m::MixinPass, expr)
 end
 
 macro spec_using(mod)
-    @assert @capture(mod, module mod_name_ body__ end)
+    @assert @capture(strip_syntax_version(mod), module mod_name_ body__ end)
 
     parents = MixinPass(__module__, [])
     clean_body = walk(parents, body)

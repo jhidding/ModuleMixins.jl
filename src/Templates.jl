@@ -1,7 +1,7 @@
 # ~/~ begin <<docs/src/40-studies.md#src/Templates.jl>>[init]
 module Templates
     using MacroTools: @capture
-    import ..Common: to_expression
+    import ..Common: to_expression, strip_syntax_version
     export @lambda, @instantiate
 
     # ~/~ begin <<docs/src/40-studies.md#template-parameter>>[init]
@@ -76,7 +76,7 @@ module Templates
     end
 
     macro lambda(expr)
-        @assert @capture(expr, module name_ body__ end)
+        @assert @capture(strip_syntax_version(expr), module name_ body__ end)
         if isempty(body) | !@capture(body[1], {raw_parameters__})
             return esc(Expr(:toplevel, :(module $name
                 $(body...)

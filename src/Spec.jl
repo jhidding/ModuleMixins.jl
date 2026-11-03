@@ -2,6 +2,7 @@
 module Spec
 
 using MacroTools: @capture
+import ..Common: strip_syntax_version
 export @spec
 
 # ~/~ begin <<docs/src/40-studies.md#spec>>[init]
@@ -15,7 +16,7 @@ Create a spec. The `@spec` macro itself doesn't perform any operations other tha
 This macro is only here for teaching purposes.
 """
 macro spec(mod)
-    @assert @capture(mod, module name_
+    @assert @capture(strip_syntax_version(mod), module name_
     body__
     end)
 
@@ -37,7 +38,7 @@ end
 # ~/~ begin <<docs/src/40-studies.md#spec>>[2]
 
 macro spec_mixin(mod)
-    @assert @capture(mod, module name_
+    @assert @capture(strip_syntax_version(mod), module name_
     body__
     end)
 

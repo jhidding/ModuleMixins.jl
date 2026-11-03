@@ -33,6 +33,20 @@ module Common
     Get name attribute from syntax data object.
     """
     name(obj) = obj.name
+
+    """
+        strip_syntax_version(expr)
+
+    From Julia 1.14, a `module` expression may carry the syntax version
+    of the code it was parsed from as its first argument:
+    `Expr(:module, v"1.14.0", true, name, body)`. Whether it does depends
+    on the project the code lives in, not on the Julia version alone.
+    Remove the version, so that `@capture` patterns of the form
+    `module name_ body__ end` match either way.
+    """
+    strip_syntax_version(expr) =
+        Meta.isexpr(expr, :module) && !isempty(expr.args) && expr.args[1] isa VersionNumber ?
+            Expr(:module, expr.args[2:end]...) : expr
 end
 
 include("Passes.jl")
@@ -43,7 +57,7 @@ include("Structs.jl")
 include("Constructors.jl")
 
 using MacroTools: @capture, postwalk
-import .Common: name
+import .Common: name, strip_syntax_version
 import .Passes: Pass, pass, no_match, walk
 import .Mixins: MixinPass
 import .Structs: Struct, CollectStructPass, define_struct
@@ -84,7 +98,7 @@ The `MixinPass` now filters for appearances of the `@mixin <Component>` syntax a
 module Mixins
 
 using MacroTools: @capture
-import ..Common: to_expression, eval_to_expression, name
+import ..Common: to_expression, eval_to_expression, name, strip_syntax_version
 import ..Passes: Pass, pass, no_match, walk
 using ..Templates: Argument, eval_argument, bind
 
@@ -121,7 +135,7 @@ function pass(m::MixinPass, expr)
 end
 
 macro spec_using(mod)
-    @assert @capture(mod, module mod_name_ body__ end)
+    @assert @capture(strip_syntax_version(mod), module mod_name_ body__ end)
 
     parents = MixinPass(__module__, [])
     clean_body = walk(parents, body)
@@ -466,7 +480,7 @@ Creates a new composable module `Name`. Structs inside this module are
 merged with those of the same name in `Parents`.
 """
 macro compose(mod)
-    @assert @capture(mod, module mod_name_ body__ end)
+    @assert @capture(strip_syntax_version(mod), module mod_name_ body__ end)
 
     <<catch-template-definition>>
 

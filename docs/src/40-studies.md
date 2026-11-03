@@ -15,6 +15,7 @@ The `@spec` macro creates a new module, and stores its own AST inside that modul
     module Spec
 
     using MacroTools: @capture
+    import ..Common: strip_syntax_version
     export @spec
 
     <<spec>>
@@ -69,7 +70,7 @@ Create a spec. The `@spec` macro itself doesn't perform any operations other tha
 This macro is only here for teaching purposes.
 """
 macro spec(mod)
-    @assert @capture(mod, module name_
+    @assert @capture(strip_syntax_version(mod), module name_
     body__
     end)
 
@@ -125,7 +126,7 @@ The `QuoteNode` calls prevent the symbols from being evaluated at macro expansio
 #| id: spec
 
 macro spec_mixin(mod)
-    @assert @capture(mod, module name_
+    @assert @capture(strip_syntax_version(mod), module name_
     body__
     end)
 
@@ -269,7 +270,7 @@ We define a module with arguments using the `@lambda` macro, and create an insta
 #| file: src/Templates.jl
 module Templates
     using MacroTools: @capture
-    import ..Common: to_expression
+    import ..Common: to_expression, strip_syntax_version
     export @lambda, @instantiate
 
     <<template-parameter>>
@@ -284,7 +285,7 @@ module Templates
     end
 
     macro lambda(expr)
-        @assert @capture(expr, module name_ body__ end)
+        @assert @capture(strip_syntax_version(expr), module name_ body__ end)
         if isempty(body) | !@capture(body[1], {raw_parameters__})
             return esc(Expr(:toplevel, :(module $name
                 $(body...)
