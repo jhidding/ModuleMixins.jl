@@ -591,8 +591,8 @@ end
 @testset "ModuleMixins.TemplateMixins" begin
     using .TMSpec
 
-    @test fieldtype(B.S, 1) is Int
-    @test fieldtype(C.S, 1) is Float64
+    @test fieldtype(B.S, 1) === Int
+    @test fieldtype(C.S, 1) === Float64
 end
 ```
 
