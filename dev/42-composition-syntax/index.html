@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Composition syntax · ModuleMixins.jl</title><meta name="title" content="Composition syntax · ModuleMixins.jl"/><meta property="og:title" content="Composition syntax · ModuleMixins.jl"/><meta property="twitter:title" content="Composition syntax · ModuleMixins.jl"/><meta name="description" content="Documentation for ModuleMixins.jl."/><meta property="og:description" content="Documentation for ModuleMixins.jl."/><meta property="twitter:description" content="Documentation for ModuleMixins.jl."/><meta property="og:url" content="https://jhidding.github.io/ModuleMixins.jl/42-composition-syntax/"/><meta property="twitter:url" content="https://jhidding.github.io/ModuleMixins.jl/42-composition-syntax/"/><link rel="canonical" href="https://jhidding.github.io/ModuleMixins.jl/42-composition-syntax/"/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.63.2/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../">ModuleMixins.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">ModuleMixins</a></li><li><a class="tocitem" href="../10-introduction/">Introduction</a></li><li><a class="tocitem" href="../20-example/">Example</a></li><li><a class="tocitem" href="../30-blog/">Objects, Inheritance and Modules in Julia</a></li><li><a class="tocitem" href="../40-studies/">Etudes in Macro Programming</a></li><li><a class="tocitem" href="../41-composition/">Composition by closure</a></li><li class="is-active"><a class="tocitem" href>Composition syntax</a><ul class="internal"><li><a class="tocitem" href="#Syntax"><span>Syntax</span></a></li><li><a class="tocitem" href="#Implementation"><span>Implementation</span></a></li><li><a class="tocitem" href="#Tests"><span>Tests</span></a></li><li><a class="tocitem" href="#Example:-facies"><span>Example: facies</span></a></li></ul></li><li><a class="tocitem" href="../45-passes/">Macro passes</a></li><li><a class="tocitem" href="../50-implementation/">Implementation</a></li><li><a class="tocitem" href="../90-contributing/">Contributing guidelines</a></li><li><a class="tocitem" href="../91-developer/">Developer documentation</a></li><li><a class="tocitem" href="../95-reference/">Reference</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Composition syntax</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Composition syntax</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/jhidding/ModuleMixins.jl/blob/main/docs/src/42-composition-syntax.md#" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Composition-syntax"><a class="docs-heading-anchor" href="#Composition-syntax">Composition syntax</a><a id="Composition-syntax-1"></a><a class="docs-heading-anchor-permalink" href="#Composition-syntax" title="Permalink"></a></h1><div class="admonition is-info" id="Origin-35451e3465c5405e"><header class="admonition-header">Origin<a class="admonition-anchor" href="#Origin-35451e3465c5405e" title="Permalink"></a></header><div class="admonition-body"><p>This chapter, including the code in <code>src/Components/Syntactic.jl</code>, was written by Claude Opus 5.5 (Anthropic) at the request of Johan Hidding, on 2026-11-04.</p></div></div><p>The <a href="../41-composition/#Composition-by-closure">previous chapter</a> composes models from components through a protocol of ordinary functions, <code>requires</code> and <code>implements</code>, and composes records from the structs that components define. This chapter adds the <code>@component</code> macro, an optional shorthand for that protocol.</p><pre><code class="language-julia hljs">@component module Spring
+    @mixin Time
+    @implements AbstractOscillator
+
+    @kwdef struct Input
+        spring_constant::Float64
+    end
+end</code></pre><p>The macro differs from <code>@compose</code> in one important way: it is purely local. It reads only the module it&#39;s applied to, and expands to that module plus a few method definitions. It never inspects or re-evaluates code from other modules. A component written by hand, like <code>Damping</code> in the previous chapter, works alongside components written with <code>@component</code>.</p><h2 id="Syntax"><a class="docs-heading-anchor" href="#Syntax">Syntax</a><a id="Syntax-1"></a><a class="docs-heading-anchor-permalink" href="#Syntax" title="Permalink"></a></h2><p>Inside <code>@component module Name ... end</code>:</p><table><tr><th style="text-align: right">Declaration</th><th style="text-align: right">Expands to</th></tr><tr><td style="text-align: right"><code>@mixin A, B</code></td><td style="text-align: right"><code>import ..A, ..B</code> and <code>requires(::Val{Name}) = (A, B)</code></td></tr><tr><td style="text-align: right"><code>@requires R</code></td><td style="text-align: right">adds <code>R</code> (a role or a component module) to <code>requires</code></td></tr><tr><td style="text-align: right"><code>@implements R, S</code></td><td style="text-align: right"><code>implements(::Val{Name}, ::Type{R}) = true</code>, and the same for <code>S</code></td></tr><tr><td style="text-align: right">a field type mentions struct <code>S</code> of the same module</td><td style="text-align: right">the struct gets a type parameter <code>S</code></td></tr></table><p>Declarations can be separated by commas or spaces. <code>@mixin A</code> imports <code>A</code> from the parent module, just like the <code>@mixin</code> of <code>@compose</code> does. A qualified name, like <code>@mixin Main.Spring</code> or <code>@mixin SomePackage.Spring</code>, is not imported, and should resolve as written inside the component module. All method definitions refer to <code>ModuleMixins.Procedural</code> directly, so a component module needn&#39;t import <code>requires</code> or <code>implements</code>.</p><p>The macro also checks for mistakes when the component is defined:</p><ul><li>a <code>@mixin</code> has to name a module;</li><li>a <code>@requires</code> has to name a module or a type;</li><li>an <code>@implements</code> has to name a type.</li></ul><h3 id="Contained-records"><a class="docs-heading-anchor" href="#Contained-records">Contained records</a><a id="Contained-records-1"></a><a class="docs-heading-anchor-permalink" href="#Contained-records" title="Permalink"></a></h3><p>A record contains another record when the type of one of its fields mentions the other record&#39;s struct. The previous chapter requires the containing struct to be parametric, with the parameter named after the contained record (see <a href="../41-composition/#Records">Records</a>). The macro does this rewrite, so users don&#39;t see the type parameter. This works in any struct, not only <code>Input</code>. A struct that mentions its own name is a recursive type, not a record containing itself, and is left alone.</p><pre><code class="language-julia hljs"># written
+@component module FaciesBase
+    @kwdef struct Facies
+        name::String
+    end
+
+    @kwdef struct Input
+        facies::Vector{Facies} = []
+    end
+end
+
+# expanded
+module FaciesBase
+    @kwdef struct Facies
+        name::String
+    end
+
+    @kwdef struct Input{Facies}
+        facies::Vector{Facies} = []
+    end
+end</code></pre><p>A component that adds per-facies fields only needs to define its own <code>struct Facies</code>. Components that don&#39;t contribute to the facies define no such struct.</p><h2 id="Implementation"><a class="docs-heading-anchor" href="#Implementation">Implementation</a><a id="Implementation-1"></a><a class="docs-heading-anchor-permalink" href="#Implementation" title="Permalink"></a></h2><details class="admonition is-details" id="src/Components/Syntactic.jl-fe20a457f2f78d81"><summary class="admonition-header">src/Components/Syntactic.jl<a class="admonition-anchor" href="#src/Components/Syntactic.jl-fe20a457f2f78d81" title="Permalink"></a></summary><div class="admonition-body"><pre><code class="language-julia hljs">#| file: src/Components/Syntactic.jl
+module Syntactic
+
+using ..Common: strip_syntax_version
+import ..Procedural
+
+export @component
+
+&lt;&lt;syntactic-declarations&gt;&gt;
+&lt;&lt;syntactic-structs&gt;&gt;
+&lt;&lt;syntactic-checks&gt;&gt;
+&lt;&lt;syntactic-component&gt;&gt;
+
+end</code></pre></div></details><h3 id="Declarations"><a class="docs-heading-anchor" href="#Declarations">Declarations</a><a id="Declarations-1"></a><a class="docs-heading-anchor-permalink" href="#Declarations" title="Permalink"></a></h3><p>A declaration is a macro call at the top level of the module body. The macros <code>@mixin</code>, <code>@requires</code> and <code>@implements</code> are never expanded: <code>@component</code> sees the body before expansion, and removes them. They are defined only to give a helpful error when used elsewhere.</p><pre><code class="language-julia hljs">#| id: syntactic-declarations
+const DECLARATIONS = (Symbol(&quot;@mixin&quot;), Symbol(&quot;@requires&quot;), Symbol(&quot;@implements&quot;))
+
+&quot;&quot;&quot;
+    declaration(expr)
+
+If `expr` is one of the declarations `@mixin`, `@requires` or `@implements`,
+return the declaration name and its arguments. Otherwise return `nothing`.
+Arguments may be separated by spaces or by commas.
+&quot;&quot;&quot;
+function declaration(expr)
+    Meta.isexpr(expr, :macrocall) &amp;&amp; expr.args[1] in DECLARATIONS || return nothing
+    args = [a for a in expr.args[2:end] if !(a isa LineNumberNode)]
+    args = collect(Iterators.flatten(Meta.isexpr(a, :tuple) ? a.args : (a,) for a in args))
+    return expr.args[1] =&gt; args
+end
+
+&quot;&quot;&quot;
+    @mixin Components...
+
+Declaration inside a `@component` module. See [`@component`](@ref).
+&quot;&quot;&quot;
+macro mixin(args...)
+    error(&quot;`@mixin` can only be used inside a `@component` module&quot;)
+end
+
+&quot;&quot;&quot;
+    @requires Requirements...
+
+Declaration inside a `@component` module. See [`@component`](@ref).
+&quot;&quot;&quot;
+macro requires(args...)
+    error(&quot;`@requires` can only be used inside a `@component` module&quot;)
+end
+
+&quot;&quot;&quot;
+    @implements Roles...
+
+Declaration inside a `@component` module. See [`@component`](@ref).
+&quot;&quot;&quot;
+macro implements(args...)
+    error(&quot;`@implements` can only be used inside a `@component` module&quot;)
+end</code></pre><h3 id="Structs"><a class="docs-heading-anchor" href="#Structs">Structs</a><a id="Structs-1"></a><a class="docs-heading-anchor-permalink" href="#Structs" title="Permalink"></a></h3><p>Structs may be wrapped in macro calls, like <code>@kwdef</code> or a docstring. <code>map_struct</code> looks through those, and applies a function to the struct definition. Only the top level of the module body is searched.</p><pre><code class="language-julia hljs">#| id: syntactic-structs
+&quot;&quot;&quot;
+    map_struct(f, expr)
+
+Apply `f` to the struct definition in `expr`, looking through macro calls
+like `@kwdef` and docstrings. Returns `expr` unchanged if it doesn&#39;t define
+a struct.
+&quot;&quot;&quot;
+function map_struct(f, expr)
+    Meta.isexpr(expr, :struct) &amp;&amp; return f(expr)
+    Meta.isexpr(expr, :macrocall) || return expr
+    return Expr(:macrocall, (map_struct(f, a) for a in expr.args)...)
+end
+
+&quot;&quot;&quot;
+    struct_name(expr)
+
+The name of the struct defined by `expr`, or `nothing`.
+&quot;&quot;&quot;
+function struct_name(expr)
+    result = nothing
+    map_struct(s -&gt; (result = type_name(s.args[2]); s), expr)
+    return result
+end
+
+type_name(head) =
+    Meta.isexpr(head, :&lt;:) ? type_name(head.args[1]) :
+    Meta.isexpr(head, :curly) ? head.args[1] :
+    head</code></pre><p>To find the records a struct contains, collect the names of other structs in the module that appear in its field types. A field is <code>name::T</code>, possibly with a default value (<code>@kwdef</code>) or marked <code>const</code>. Other expressions in the struct body, like inner constructors, are skipped.</p><pre><code class="language-julia hljs">#| id: syntactic-structs
+&quot;&quot;&quot;
+    field_types(struct_expr)
+
+The declared types of the fields of a struct.
+&quot;&quot;&quot;
+function field_types(expr)
+    types = []
+    for field in expr.args[3].args
+        Meta.isexpr(field, :const) &amp;&amp; (field = field.args[1])
+        Meta.isexpr(field, :(=)) &amp;&amp; (field = field.args[1])
+        Meta.isexpr(field, :(::)) &amp;&amp; length(field.args) == 2 &amp;&amp; push!(types, field.args[2])
+    end
+    return types
+end
+
+&quot;&quot;&quot;
+    mentioned(names, expr)
+
+The elements of `names` that occur as a symbol anywhere in `expr`, in the
+order of `names`.
+&quot;&quot;&quot;
+function mentioned(names, expr)
+    found = Set{Symbol}()
+    visit(x) = x isa Symbol ? push!(found, x) : x isa Expr &amp;&amp; foreach(visit, x.args)
+    visit(expr)
+    return [n for n in names if n in found]
+end</code></pre><p>Adding type parameters to the struct head keeps a supertype in place. <code>record_type</code> reads every type parameter as the name of a record, so a struct that contains records can&#39;t have type parameters of its own.</p><pre><code class="language-julia hljs">#| id: syntactic-structs
+function add_parameters(head, params)
+    Meta.isexpr(head, :&lt;:) &amp;&amp; return Expr(:&lt;:, add_parameters(head.args[1], params), head.args[2])
+    Meta.isexpr(head, :curly) &amp;&amp;
+        error(&quot;struct $(head.args[1]) contains records, so it can&#39;t have type parameters of its own&quot;)
+    return Expr(:curly, head, params...)
+end
+
+&quot;&quot;&quot;
+    parameterize(expr, struct_names)
+
+Rewrite the struct defined in `expr` (if any), so that every other struct in
+`struct_names` that is mentioned in a field type becomes a type parameter.
+&quot;&quot;&quot;
+parameterize(expr, struct_names) = map_struct(expr) do s
+    own = type_name(s.args[2])
+    contained = mentioned(filter(!=(own), struct_names), Expr(:block, field_types(s)...))
+    isempty(contained) &amp;&amp; return s
+    return Expr(:struct, s.args[1], add_parameters(s.args[2], contained), s.args[3])
+end</code></pre><h3 id="Checks"><a class="docs-heading-anchor" href="#Checks">Checks</a><a id="Checks-1"></a><a class="docs-heading-anchor-permalink" href="#Checks" title="Permalink"></a></h3><p>Checks that need the value of a name can&#39;t be done during macro expansion, since the name may not be defined yet. They are emitted as function calls at the end of the module, so they run when the module is defined.</p><pre><code class="language-julia hljs">#| id: syntactic-checks
+&quot;&quot;&quot;
+    check_declaration(x, valid, declaration, name)
+
+Check that `x`, named `name` in `declaration`, is an instance of `valid`.
+&quot;&quot;&quot;
+function check_declaration(x, valid, declaration, name)
+    x isa valid || error(&quot;$(declaration) $(name): expected a $(valid), got $(typeof(x))&quot;)
+    return nothing
+end</code></pre><h3 id="The-macro"><a class="docs-heading-anchor" href="#The-macro">The macro</a><a id="The-macro-1"></a><a class="docs-heading-anchor-permalink" href="#The-macro" title="Permalink"></a></h3><p><code>@component</code> splits the module body into declarations and other statements, rewrites the structs that contain records, and appends the method definitions. Inside the module, its own name refers to the module, so the methods dispatch on <code>Val{Name}</code>. Method names are <code>GlobalRef</code>s to <code>Procedural</code>, so they extend the protocol functions whatever is in scope in the component module.</p><pre><code class="language-julia hljs">#| id: syntactic-component
+mixin_import(m::Symbol) = [Expr(:import, Expr(:., :., :., m))]
+mixin_import(_) = []
+
+&quot;&quot;&quot;
+    @component module Name
+        [@mixin Components...]
+        [@requires Requirements...]
+        [@implements Roles...]
+        ...
+    end
+
+Define a component module. The declarations expand into methods of
+`ModuleMixins.Procedural`:
+
+- `@mixin A, B`: import `A` and `B` from the parent module (if they are plain
+  names), and require them as components.
+- `@requires R`: require role or component `R`.
+- `@implements R`: the component implements role `R`.
+
+If a field type of a struct mentions another struct `S` of the same module,
+the struct gets a type parameter `S`, which `record_type` fills with the
+composite of all parts of record `S`.
+&quot;&quot;&quot;
+macro component(mod)
+    mod = strip_syntax_version(mod)
+    Meta.isexpr(mod, :module) || error(&quot;@component expects a module definition&quot;)
+    bare, name, body = mod.args
+
+    mixins, requirements, roles, statements = [], [], [], []
+    for expr in body.args
+        decl = declaration(expr)
+        if decl === nothing
+            push!(statements, expr)
+        elseif decl.first === Symbol(&quot;@mixin&quot;)
+            append!(mixins, decl.second)
+        elseif decl.first === Symbol(&quot;@requires&quot;)
+            append!(requirements, decl.second)
+        else
+            append!(roles, decl.second)
+        end
+    end
+
+    struct_names = filter(!isnothing, struct_name.(statements))
+    statements = map(expr -&gt; parameterize(expr, struct_names), statements)
+
+    P(f) = GlobalRef(Procedural, f)
+    check(x, valid, decl) =
+        :($(GlobalRef(@__MODULE__, :check_declaration))($x, $valid, $decl, $(QuoteNode(x))))
+    self = :(::$(GlobalRef(Base, :Val)){$name})
+    requirement_list = [mixins; requirements]
+
+    definitions = [
+        (check(m, Module, &quot;@mixin&quot;) for m in mixins)...,
+        (check(r, Union{Module, Type}, &quot;@requires&quot;) for r in requirements)...,
+        (check(r, Type, &quot;@implements&quot;) for r in roles)...,
+        (isempty(requirement_list) ? () : (:($(P(:requires))($self) = ($(requirement_list...),)),))...,
+        (:($(P(:implements))($self, ::Type{$r}) = true) for r in roles)...,
+    ]
+
+    new_body = Expr(:block,
+        Iterators.flatten(mixin_import.(mixins))...,
+        statements...,
+        definitions...)
+    return esc(Expr(:toplevel, Expr(:module, bare, name, new_body)))
+end</code></pre><h2 id="Tests"><a class="docs-heading-anchor" href="#Tests">Tests</a><a id="Tests-1"></a><a class="docs-heading-anchor-permalink" href="#Tests" title="Permalink"></a></h2><p>The tests repeat the elemental example of the previous chapter, mixing components written with <code>@component</code> and by hand. The last part tests records.</p><pre><code class="language-julia hljs">#| file: test/SyntacticSpec.jl
+module SyntacticSpec
+using Test
+using ModuleMixins.Syntactic
+using ModuleMixins.Procedural
+import ModuleMixins.Procedural: default_implementation, requires
+
+abstract type AbstractSource end
+abstract type AbstractGradient end
+function value end
+function gradient end
+
+@component module Ramp
+    import ..AbstractSource, ..AbstractGradient, ..value, ..gradient
+    @implements AbstractSource, AbstractGradient
+    @kwdef struct Input
+        slope::Float64 = 1.0
+        x::Float64 = 0.0
+    end
+    value(s::Input, model) = s.slope * s.x
+    gradient(s::Input, model) = s.slope
+end
+
+@component module Constant
+    import ..AbstractSource, ..value
+    @implements AbstractSource
+    @kwdef struct Input
+        c::Float64 = 1.0
+    end
+    value(s::Input, model) = s.c
+end
+
+default_implementation(::Type{AbstractSource}) = Constant
+
+@component module Double
+    import ..AbstractSource, ..value
+    using ModuleMixins.Procedural: component
+    @requires AbstractSource
+    @kwdef struct Input
+        factor::Float64 = 2.0
+    end
+    value(d::Input, model) = d.factor * value(component(model, AbstractSource), model)
+end
+
+# written by hand
+module Square
+    import ..AbstractSource, ..value, ..requires
+    using ModuleMixins.Procedural: component
+    struct Input end
+    requires(::Val{Square}) = (AbstractSource,)
+    value(::Input, model) = value(component(model, AbstractSource), model)^2
+end
+
+@component module Sum
+    import ..value
+    using ModuleMixins.Procedural: component
+    @mixin Double Square
+    struct Input end
+    value(::Input, model) =
+        value(component(model, Double.Input), model) +
+        value(component(model, Square.Input), model)
+end
+
+@testset &quot;Syntactic&quot; begin
+    @test requires(Sum) == (Double, Square)
+    @test requires(Double) == (AbstractSource,)
+    @test implements(Ramp, AbstractGradient)
+    @test !implements(Constant, AbstractGradient)
+    @test closure(Sum) == (Constant, Double, Square, Sum)
+
+    m = record_type(:Input, Sum)(c = 3.0, factor = 10.0)
+    @test value(component(m, Sum.Input), m) == 39.0
+    r = record_type(:Input, Sum, Ramp)(slope = 2.0, x = 1.5)
+    @test (@inferred value(component(r, Sum.Input), r)) == 15.0
+    @test component(r, AbstractGradient) === component(r, AbstractSource)
+end
+
+@testset &quot;Syntactic errors&quot; begin
+    @test_throws ErrorException macroexpand(@__MODULE__, :(@component struct Input end))
+    @test_throws ErrorException macroexpand(@__MODULE__, :(@component module Parametric
+        struct Facies end
+        struct Input{T}
+            facies::Vector{Facies}
+        end
+    end))
+    @test_throws ErrorException @eval @component module BadMixin
+        @mixin AbstractSource
+        struct Input end
+    end
+    @test_throws ErrorException @eval @component module BadRequirement
+        @requires Base.sin
+        struct Input end
+    end
+    @test_throws ErrorException @eval @component module BadRole
+        @implements Base.sin
+        struct Input end
+    end
+    @test_throws ErrorException macroexpand(@__MODULE__, :(Syntactic.@mixin Sum))
+end
+
+@component module FaciesBase
+    @kwdef struct Layer
+        thickness::Float64 = 1.0
+    end
+
+    @kwdef struct Facies
+        name::String
+        layers::Vector{Layer} = []
+    end
+
+    &quot;&quot;&quot;
+    Input with a docstring and a supertype.
+    &quot;&quot;&quot;
+    @kwdef struct Input &lt;: Any
+        facies::Vector{Facies} = []
+    end
+
+    # recursive, not a record containing itself
+    struct Tree
+        children::Vector{Tree}
+    end
+end
+
+@component module Production
+    @mixin FaciesBase
+    @kwdef struct Facies
+        rate::Float64 = 0.0
+    end
+    @kwdef struct Input
+        sea_level::Float64 = 0.0
+    end
+    @kwdef mutable struct State
+        height::Float64 = 0.0
+    end
+end
+
+# contributes nothing per facies
+@component module Time
+    @mixin FaciesBase
+    @kwdef struct Input
+        t_end::Float64 = 1.0
+    end
+end
+
+@testset &quot;Syntactic records&quot; begin
+    @test FaciesBase.Input isa UnionAll
+    @test FaciesBase.Facies isa UnionAll
+    @test FaciesBase.Layer isa DataType
+    @test FaciesBase.Tree isa DataType
+
+    M = record_type(:Input, Production, Time)
+    m = M(facies = [(name = &quot;reef&quot;, rate = 2.0, layers = [(thickness = 3.0,)]), (name = &quot;lagoon&quot;,)],
+          t_end = 5.0)
+    @test m.t_end == 5.0
+    @test [f.name for f in m.facies] == [&quot;reef&quot;, &quot;lagoon&quot;]
+    @test [f.rate for f in m.facies] == [2.0, 0.0]
+    @test m.facies[1].layers[1].thickness == 3.0
+    @test isempty(m.facies[2].layers)
+    @test component(m.facies[1], Production) isa Production.Facies
+    @test component(m, FaciesBase) isa FaciesBase.Input
+    @test (@inferred (m -&gt; m.facies[1].rate)(m)) == 2.0
+
+    S = record_type(:State, Production, Time)
+    @test S(height = 1.0).height == 1.0
+
+    # only the base part
+    b = record_type(:Input, FaciesBase)(facies = [(name = &quot;a&quot;,)])
+    @test b.facies[1].name == &quot;a&quot;
+    @test_throws ErrorException record_type(:Input, FaciesBase)(facies = [(rate = 1.0,)])
+end
+end</code></pre><h2 id="Example:-facies"><a class="docs-heading-anchor" href="#Example:-facies">Example: facies</a><a id="Example:-facies-1"></a><a class="docs-heading-anchor-permalink" href="#Example:-facies" title="Permalink"></a></h2><p>A small model in the style of CarboKitten. Facies have a name, production adds a rate per facies, and the model computes the total production over all facies. Each component dispatches on its own <code>Facies</code> part, while reading other fields through the composite.</p><pre><code class="language-julia hljs">#| file: examples/composition/facies.jl
+using ModuleMixins.Syntactic
+using ModuleMixins.Procedural
+
+function describe end
+
+@component module FaciesBase
+    import ..describe
+    @kwdef struct Facies
+        name::String
+    end
+    @kwdef struct Input
+        facies::Vector{Facies} = []
+    end
+    describe(f::Facies, item) = &quot;facies $(f.name)&quot;
+end
+
+@component module Production
+    import ..describe
+    @mixin FaciesBase
+    @kwdef struct Facies
+        rate::Float64 = 0.0
+    end
+    @kwdef struct Input
+        scale::Float64 = 1.0
+    end
+    describe(f::Facies, item) = &quot;produces $(f.rate)&quot;
+    total(input) = input.scale * sum(f.rate for f in input.facies)
+end
+
+const Model = record_type(:Input, Production)
+m = Model(scale = 2.0, facies = [(name = &quot;reef&quot;, rate = 3.0), (name = &quot;lagoon&quot;, rate = 1.0)])
+@show Production.total(m)
+for f in m.facies
+    println(join((describe(p, f) for p in parts(f)), &quot;, &quot;))
+end</code></pre><pre><code class="nohighlight hljs">Production.total(m) = 8.0
+facies reef, produces 3.0
+facies lagoon, produces 1.0</code></pre><script type="module">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/+esm';
+mermaid.initialize({
+    startOnLoad: true,
+    theme: "neutral"
+});
+</script></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../41-composition/">« Composition by closure</a><a class="docs-footer-nextpage" href="../45-passes/">Macro passes »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Wednesday 4 November 2026 15:15">Wednesday 4 November 2026</span>. Using Julia version 1.10.13.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
