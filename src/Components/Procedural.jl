@@ -2,7 +2,7 @@
 module Procedural
 
 export requires, implements, default_implementation, closure, model_type,
-    Composite, parts, component, map_components
+    Composite, parts, component, map_components, item_collection, item_part
 
 # ~/~ begin <<docs/src/41-composition.md#composition-requires>>[init]
 """
@@ -172,14 +172,60 @@ The `Composite` type for the closure of `roots`.
 """
 function model_type(roots::Type...)
     components = closure(roots...)
-    names = collect(Iterators.flatten(fieldnames.(components)))
-    duplicate = [n for n in unique(names) if count(==(n), names) > 1]
-    isempty(duplicate) || error("field names defined by more than one component: $(duplicate)")
-
     roles = unique(R for C in components for R in requires(C) if isabstracttype(R))
     rolemap = (RoleMap{R, findfirst(==(resolve(R, roots)), components)} for R in roles)
-    return Composite{Tuple{components...}, Tuple{rolemap...}}
+    concrete = map(C -> with_items(C, components), components)
+    check_unique_fields(concrete)
+    return Composite{Tuple{concrete...}, Tuple{rolemap...}}
 end
+
+function check_unique_fields(types)
+    names = collect(Iterators.flatten(fieldnames.(types)))
+    duplicate = [n for n in unique(names) if count(==(n), names) > 1]
+    isempty(duplicate) || error("field names defined by more than one component: $(duplicate)")
+end
+# ~/~ end
+# ~/~ begin <<docs/src/41-composition.md#composition-items>>[init]
+"""
+    item_collection(C::Type)
+
+The kinds of item (as symbols) that the type parameters of component `C`
+stand for, in order. Defaults to `()`.
+"""
+item_collection(::Type) = ()
+
+"""
+    item_part(C::Type, ::Val{name})
+
+The part that component `C` contributes to items of kind `name`, or `nothing`.
+"""
+item_part(::Type, ::Val) = nothing
+
+"""
+    item_type(name::Symbol, components)
+
+The `Composite` type of an item of kind `name`, with one part for every
+component in `components` that contributes to it.
+"""
+function item_type(name::Symbol, components)
+    contributions = map(C -> item_part(C, Val(name)), components)
+    item_parts = Tuple(P for P in contributions if P !== nothing)
+    isempty(item_parts) && error("no component contributes to items of kind $(name)")
+    check_unique_fields(item_parts)
+    return Composite{Tuple{item_parts...}, Tuple{}}
+end
+
+"""
+    with_items(C::Type, components)
+
+Component `C` with its item kinds substituted by their composite types.
+"""
+function with_items(C::Type, components)
+    kinds = item_collection(C)
+    isempty(kinds) ? C : C{map(k -> item_type(k, components), kinds)...}
+end
+
+Base.convert(::Type{C}, x::NamedTuple) where {C <: Composite} = C(; x...)
 # ~/~ end
 
 end

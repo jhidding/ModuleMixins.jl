@@ -2,7 +2,8 @@
 module ProceduralSpec
 using Test
 using ModuleMixins.Procedural
-import ModuleMixins.Procedural: requires, implements, default_implementation
+import ModuleMixins.Procedural: requires, implements, default_implementation,
+    item_collection, item_part
 
 abstract type A end
 abstract type B end
@@ -43,6 +44,37 @@ default_implementation(::Type{A}) = Z
 
     @test_throws ErrorException M(w = 1)
     @test_throws ErrorException component(m, Z)
+end
+
+# per-item records: `Owner` holds items, `Owner` and `Extra` contribute parts
+@kwdef struct OwnerItem
+    name::String = ""
+end
+@kwdef struct Owner{I}
+    items::Vector{I} = []
+end
+@kwdef struct ExtraItem
+    weight::Float64 = 1.0
+end
+struct Extra end
+
+requires(::Type{Extra}) = (Owner,)
+item_collection(::Type{<:Owner}) = (:Item,)
+item_part(::Type{<:Owner}, ::Val{:Item}) = OwnerItem
+item_part(::Type{Extra}, ::Val{:Item}) = ExtraItem
+
+@testset "Procedural items" begin
+    M = model_type(Extra)
+    m = M(items = [(name = "a", weight = 2.0), (name = "b",)])
+    @test m.items[1].name == "a" && m.items[1].weight == 2.0
+    @test m.items[2].weight == 1.0
+    @test component(m.items[1], ExtraItem) isa ExtraItem
+    @test component(m, Owner) isa Owner
+    @test (@inferred (m -> m.items[1].weight)(m)) == 2.0
+
+    # without `Extra`, items have only the owner's part
+    @test model_type(Owner)(items = [(name = "c",)]).items[1].name == "c"
+    @test_throws ErrorException model_type(Owner)(items = [(weight = 1.0,)])
 end
 end
 # ~/~ end

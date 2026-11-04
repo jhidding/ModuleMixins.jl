@@ -11,5 +11,6 @@ using Test
     include("ComposeSpec.jl")
     include("TemplateMixinSpec.jl")
     include("ProceduralSpec.jl")
+    include("SyntacticSpec.jl")
 end
 # ~/~ end

@@ -51,6 +51,7 @@ include("Mixins.jl")
 include("Structs.jl")
 include("Constructors.jl")
 include("Components/Procedural.jl")
+include("Components/Syntactic.jl")
 
 using MacroTools: @capture, postwalk
 import .Common: name, strip_syntax_version

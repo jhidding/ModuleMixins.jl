@@ -24,13 +24,14 @@ The library is the module `ModuleMixins.Procedural`.
     module Procedural
 
     export requires, implements, default_implementation, closure, model_type,
-        Composite, parts, component, map_components
+        Composite, parts, component, map_components, item_collection, item_part
 
     <<composition-requires>>
     <<composition-closure>>
     <<composition-composite>>
     <<composition-component>>
     <<composition-construct>>
+    <<composition-items>>
 
     end
     ```
@@ -236,14 +237,72 @@ The `Composite` type for the closure of `roots`.
 """
 function model_type(roots::Type...)
     components = closure(roots...)
-    names = collect(Iterators.flatten(fieldnames.(components)))
-    duplicate = [n for n in unique(names) if count(==(n), names) > 1]
-    isempty(duplicate) || error("field names defined by more than one component: $(duplicate)")
-
     roles = unique(R for C in components for R in requires(C) if isabstracttype(R))
     rolemap = (RoleMap{R, findfirst(==(resolve(R, roots)), components)} for R in roles)
-    return Composite{Tuple{components...}, Tuple{rolemap...}}
+    concrete = map(C -> with_items(C, components), components)
+    check_unique_fields(concrete)
+    return Composite{Tuple{concrete...}, Tuple{rolemap...}}
 end
+
+function check_unique_fields(types)
+    names = collect(Iterators.flatten(fieldnames.(types)))
+    duplicate = [n for n in unique(names) if count(==(n), names) > 1]
+    isempty(duplicate) || error("field names defined by more than one component: $(duplicate)")
+end
+```
+
+### Per-item records
+
+Some components hold a collection of items, and other components add fields to each item. In CarboKitten, the facies are such items: `Production`, `CellularAutomaton` and `Denudation` each add their own per-facies parameters. The item record is composed in the same way as the model: a `Composite` with one part per component that contributes to it.
+
+The protocol has two functions. The component that owns the collection is a parametric type, with one type parameter per kind of item. `item_collection(C)` names these kinds, in the order of the type parameters. Every component that contributes to an item of kind `name` returns its part type from `item_part(C, Val(name))`. Both have defaults, so components that don't take part need not do anything.
+
+`model_type` builds the item composite for each kind from the contributing components, in closure order, and substitutes it for the type parameter. The closure is computed on the bare (`UnionAll`) types, so `requires` and `implements` methods for a parametric component should be defined for `Type{<:C}`.
+
+Users pass items as named tuples of flat arguments, like the model itself. Converting a named tuple to a composite type calls its keyword constructor, so a field `facies::Vector{F}` accepts a vector of named tuples.
+
+```julia
+#| id: composition-items
+"""
+    item_collection(C::Type)
+
+The kinds of item (as symbols) that the type parameters of component `C`
+stand for, in order. Defaults to `()`.
+"""
+item_collection(::Type) = ()
+
+"""
+    item_part(C::Type, ::Val{name})
+
+The part that component `C` contributes to items of kind `name`, or `nothing`.
+"""
+item_part(::Type, ::Val) = nothing
+
+"""
+    item_type(name::Symbol, components)
+
+The `Composite` type of an item of kind `name`, with one part for every
+component in `components` that contributes to it.
+"""
+function item_type(name::Symbol, components)
+    contributions = map(C -> item_part(C, Val(name)), components)
+    item_parts = Tuple(P for P in contributions if P !== nothing)
+    isempty(item_parts) && error("no component contributes to items of kind $(name)")
+    check_unique_fields(item_parts)
+    return Composite{Tuple{item_parts...}, Tuple{}}
+end
+
+"""
+    with_items(C::Type, components)
+
+Component `C` with its item kinds substituted by their composite types.
+"""
+function with_items(C::Type, components)
+    kinds = item_collection(C)
+    isempty(kinds) ? C : C{map(k -> item_type(k, components), kinds)...}
+end
+
+Base.convert(::Type{C}, x::NamedTuple) where {C <: Composite} = C(; x...)
 ```
 
 ### Tests
@@ -255,7 +314,8 @@ The tests use a role `A` that `X` fills by subtyping, a role `B` that `X` fills 
 module ProceduralSpec
 using Test
 using ModuleMixins.Procedural
-import ModuleMixins.Procedural: requires, implements, default_implementation
+import ModuleMixins.Procedural: requires, implements, default_implementation,
+    item_collection, item_part
 
 abstract type A end
 abstract type B end
@@ -296,6 +356,37 @@ default_implementation(::Type{A}) = Z
 
     @test_throws ErrorException M(w = 1)
     @test_throws ErrorException component(m, Z)
+end
+
+# per-item records: `Owner` holds items, `Owner` and `Extra` contribute parts
+@kwdef struct OwnerItem
+    name::String = ""
+end
+@kwdef struct Owner{I}
+    items::Vector{I} = []
+end
+@kwdef struct ExtraItem
+    weight::Float64 = 1.0
+end
+struct Extra end
+
+requires(::Type{Extra}) = (Owner,)
+item_collection(::Type{<:Owner}) = (:Item,)
+item_part(::Type{<:Owner}, ::Val{:Item}) = OwnerItem
+item_part(::Type{Extra}, ::Val{:Item}) = ExtraItem
+
+@testset "Procedural items" begin
+    M = model_type(Extra)
+    m = M(items = [(name = "a", weight = 2.0), (name = "b",)])
+    @test m.items[1].name == "a" && m.items[1].weight == 2.0
+    @test m.items[2].weight == 1.0
+    @test component(m.items[1], ExtraItem) isa ExtraItem
+    @test component(m, Owner) isa Owner
+    @test (@inferred (m -> m.items[1].weight)(m)) == 2.0
+
+    # without `Extra`, items have only the owner's part
+    @test model_type(Owner)(items = [(name = "c",)]).items[1].name == "c"
+    @test_throws ErrorException model_type(Owner)(items = [(weight = 1.0,)])
 end
 end
 ```
@@ -670,9 +761,7 @@ Limitations shared with `@compose`:
 
 Both depend on which components end up in the model, so they can only be checked or resolved when the model is assembled.
 
-Limitation of this prototype:
-
-- **No per-item records.** In CarboKitten, components contribute fields not only to the top-level input but also to each facies (`Production`, `CellularAutomaton`, `Denudation` and others each define a `Facies` struct), and `@compose` merges those as well. The prototype composes a single record per model. This is the only real regression.
+Per-item records, like the facies in CarboKitten, were missing from the first version of this prototype. They are now composed in the same way as the model (see [Per-item records](@ref)).
 
 ## Lifting the limitations
 
@@ -684,6 +773,8 @@ An earlier version of this prototype used subtyping as the only way to fill a ro
 - Methods can't dispatch on a role that is filled by trait (`value(s::AbstractSource, model)` only matches subtypes). Where that's needed, the usual Holy-trait pattern applies. In practice components find each other through `component(model, Role)`, which works either way.
 
 ### A local, module-level macro
+
+This macro is now implemented as `@component`; see [Composition syntax](@ref). The text below is the original proposal. The implementation differs in details: `item_collection` and `item_part` are keyed by the name of the item struct (`:Facies`) rather than the field name, and the type parameter keeps the struct's name.
 
 A macro similar to `@compose` can make these extensions comfortable to use. The difference from `@compose` is that its syntax transformation is purely local: it reads only the module it's applied to and expands into ordinary method definitions (`requires`, `implements`, ...). It never inspects or re-evaluates code from parent modules. The function protocol stays the specification, and the macro is optional shorthand: a component written by hand, like `Damping` above, keeps working.
 
@@ -719,6 +810,6 @@ end
 item_collection(::Type{<:Input}) = (:facies,)
 ```
 
-In every other component that defines a `struct Facies`, the macro emits something like `item_part(::Type{Input}, ::Val{:facies}) = Facies`. `model_type` collects these parts in closure order, builds `Composite{Tuple{FaciesBase.Facies, Production.Facies, ...}}`, and substitutes it for `F`. Each `input.facies[i]` is then a composite, with flat property access and per-component dispatch, like the top-level input. Still open: constructing per-item composites from the flat per-facies arguments users pass now, and components that have no per-item part.
+In every other component that defines a `struct Facies`, the macro emits something like `item_part(::Type{Input}, ::Val{:facies}) = Facies`. `model_type` collects these parts in closure order, builds `Composite{Tuple{FaciesBase.Facies, Production.Facies, ...}}`, and substitutes it for `F`. Each `input.facies[i]` is then a composite, with flat property access and per-component dispatch, like the top-level input.
 
-With roles as traits and per-item records covered by the macro, the composition approach would do everything `@compose` does. Its remaining limitations would be the ones `@compose` already has.
+With roles as traits and per-item records covered, the composition approach does everything `@compose` does. Its remaining limitations are the ones `@compose` already has.
