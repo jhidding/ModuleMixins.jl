@@ -1,27 +1,29 @@
 # Composition by closure
 
 !!! note "Origin"
-    This chapter, including the prototype code in `examples/composition`, was written by Claude Opus 5.5 (Anthropic) at the request of Johan Hidding, on 2026-11-03.
+    This chapter, including the prototype code in `src/Components/Procedural.jl` and `examples/composition`, was written by Claude Opus 5.5 (Anthropic) at the request of Johan Hidding, on 2026-11-03 and 2026-11-04.
 
 This page is a stand-alone prototype of the design discussed in [issue #14](https://github.com/jhidding/ModuleMixins.jl/issues/14). It doesn't use `@compose` at all. The question it tries to answer: can we keep what `@compose` is good at (diamond inheritance and automatically including all transitive dependencies), while composing values out of parts that Julia can dispatch on, instead of merging structs by name?
 
 The prototype has three ingredients:
 
-1. A **component** is an ordinary type (here, each component module defines an `Input` struct). A component declares what it depends on by extending `requires`. A dependency is either another component (a concrete type) or a **role** (an abstract type), which any component subtyping it can fill.
+1. A **component** is an ordinary type (here, each component module defines an `Input` struct). A component declares what it depends on by extending `requires`. A dependency is either another component (a concrete type) or a **role** (an abstract type). A component fills a role by subtyping it, or by declaring it with `implements`, which lets one component fill several roles.
 2. A **closure** computation walks those declarations, resolves roles, and returns every needed component exactly once, dependencies first. This is the part of `@compose` that handles the diamond.
 3. A **`Composite`** holds one part per component. Property access is forwarded to the part that owns the field, so code can keep writing `input.t_step`, but each part keeps its own type for dispatch.
 
-No macros are needed: the closure is computed by an ordinary function, and the composed type is just `Composite{Tuple{...}}`.
+No macros are needed: the closure is computed by an ordinary function, and the composed type is just a `Composite` of a tuple of component types.
 
 ## Implementation
 
-!!! details "examples/composition/composition.jl"
+The library is the module `ModuleMixins.Procedural`.
+
+!!! details "src/Components/Procedural.jl"
 
     ```julia
-    #| file: examples/composition/composition.jl
-    module Composition
+    #| file: src/Components/Procedural.jl
+    module Procedural
 
-    export requires, default_implementation, closure, model_type,
+    export requires, implements, default_implementation, closure, model_type,
         Composite, parts, component, map_components
 
     <<composition-requires>>
@@ -37,6 +39,8 @@ No macros are needed: the closure is computed by an ordinary function, and the c
 
 By default a component has no dependencies. Components with dependencies extend `requires`. A role may name a default implementation, used when nothing else fills it.
 
+Which roles a component fills is a trait: `implements(C, R)`. By default a component fills the roles it subtypes. A Julia struct has only one supertype, and it has to be chosen where the struct is defined. Extending `implements` lifts both restrictions: a component can fill any number of roles, and the declaration can be made anywhere, for example to adapt a component from another package. Roles are still abstract types. They only serve as names, so nothing needs to subtype them.
+
 ```julia
 #| id: composition-requires
 """
@@ -46,6 +50,15 @@ The components (concrete types) or roles (abstract types) that component `T`
 depends on. Extend this for every component that has dependencies.
 """
 requires(::Type) = ()
+
+"""
+    implements(C::Type, R::Type)
+
+Whether component `C` fills role `R`. Defaults to `C <: R`. Extend this to
+let a component fill more than one role, or to declare a role for a
+component defined elsewhere.
+"""
+implements(C::Type, R::Type) = C <: R
 
 """
     default_implementation(R::Type)
@@ -64,6 +77,22 @@ default_implementation(R::Type) =
 ```julia
 #| id: composition-closure
 """
+    resolve(R::Type, roots)
+
+The component that fills requirement `R`. A concrete type is a component and
+resolves to itself. A role resolves to the one component in `roots` that
+implements it, or else to its `default_implementation`.
+"""
+function resolve(R::Type, roots)
+    isabstracttype(R) || return R
+    candidates = [C for C in roots if implements(C, R)]
+    length(candidates) > 1 &&
+        error("role $(R) is implemented by more than one component: $(candidates)")
+    isempty(candidates) || return only(candidates)
+    return default_implementation(R)
+end
+
+"""
     closure(roots::Type...)
 
 Compute all components needed by `roots`, in dependency order (dependencies
@@ -75,17 +104,8 @@ function closure(roots::Type...)
     order = Type[]
     visiting = Type[]
 
-    function resolve(R)
-        isabstracttype(R) || return R
-        candidates = [C for C in roots if C <: R]
-        length(candidates) > 1 &&
-            error("role $(R) is implemented by more than one component: $(candidates)")
-        isempty(candidates) || return only(candidates)
-        return default_implementation(R)
-    end
-
     function visit(T)
-        C = resolve(T)
+        C = resolve(T, roots)
         C in order && return
         C in visiting && error("cyclic requirement: $(join([visiting; C], " -> "))")
         push!(visiting, C)
@@ -103,18 +123,29 @@ end
 
 A `Composite` wraps a tuple of parts. Property access is forwarded to the part that has a field of that name. The lookup is done in a generated function, so for a constant property name it resolves at compile time and `input.t_step` is as fast as a field access.
 
+The second type parameter records which part fills each role that a component in the model requires. It is a tuple of `RoleMap{R, i}` markers, meaning "role `R` is filled by part `i`". This is needed because role lookup also has to happen at compile time, but the generator of a `@generated` function may not call `implements`: methods added after the generator is defined, like the `implements` declarations of components, aren't reliably visible to it. So roles are resolved by `model_type`, which runs as ordinary code, and the generator only reads the result from the type. A composite built directly from parts, like the state composites below, has no roles.
+
 ```julia
 #| id: composition-composite
 """
-    Composite{T <: Tuple}
+    RoleMap{R, i}
+
+Marker type: role `R` is filled by part `i` of a composite.
+"""
+struct RoleMap{R, i} end
+
+"""
+    Composite{T <: Tuple, R <: Tuple}
 
 A value composed of parts, one per component. Properties are forwarded to the
 part that has a field of that name, so `c.x` works for any field `x` of any
-part.
+part. `R` is a tuple of `RoleMap` markers, recording which part fills each role.
 """
-struct Composite{T <: Tuple}
+struct Composite{T <: Tuple, R <: Tuple}
     parts::T
 end
+
+Composite(parts::Tuple) = Composite{typeof(parts), Tuple{}}(parts)
 
 parts(c::Composite) = getfield(c, :parts)
 
@@ -141,12 +172,24 @@ end
 
 A component reaches its dependencies through `component`, which looks up a part by its type or by the role it implements. This is where dispatch comes in: the part that comes back has its own concrete type.
 
+The lookup tries the role map first, then subtyping. Both are resolved at compile time. Only a role that no component in the model requires, and that isn't filled by subtyping, falls back to calling `implements` at run time. That still gives the right part, but it isn't type-stable.
+
 ```julia
 #| id: composition-component
-# Index of the part that is (or implements) `T`. Computed at compile time.
-@generated function _index(::Type{P}, ::Type{T}) where {P <: Tuple, T}
+# Index of the part that is (or implements) `T`. Computed at compile time,
+# except for roles that are neither in the role map nor filled by subtyping.
+@generated function _index(::Type{P}, ::Type{R}, ::Type{T}) where {P <: Tuple, R <: Tuple, T}
+    for m in fieldtypes(R)
+        m.parameters[1] === T && return m.parameters[2]
+    end
     i = findfirst(X -> X <: T, fieldtypes(P))
-    i === nothing ? :(error("no component of type $(T)")) : i
+    i === nothing ? :(_index_dynamic(P, T)) : i
+end
+
+function _index_dynamic(::Type{P}, ::Type{T}) where {P <: Tuple, T}
+    i = findfirst(X -> implements(X, T), fieldtypes(P))
+    i === nothing && error("no component of type, or implementing, $(T)")
+    return i
 end
 
 """
@@ -154,7 +197,7 @@ end
 
 The part of `c` that is of type `T`, or that implements role `T`.
 """
-component(c::Composite, ::Type{T}) where {T} = parts(c)[_index(typeof(parts(c)), T)]
+component(c::Composite{P, R}, ::Type{T}) where {P, R, T} = parts(c)[_index(P, R, T)]
 
 """
     map_components(f, c::Composite)
@@ -166,22 +209,22 @@ map_components(f, c::Composite) = Composite(Tuple(filter(!isnothing, map(f, part
 
 ### Construction
 
-Users shouldn't need to know how a model is split into parts, so a composite is constructed from flat keyword arguments. Each argument is routed to the part that has a field of that name, and unknown arguments are an error. `model_type` computes the closure and checks that no field name is defined by two components, since forwarding would be ambiguous otherwise.
+Users shouldn't need to know how a model is split into parts, so a composite is constructed from flat keyword arguments. Each argument is routed to the part that has a field of that name, and unknown arguments are an error. `model_type` computes the closure and checks that no field name is defined by two components, since forwarding would be ambiguous otherwise. It also resolves every role that a component in the model requires, and stores the result in the role map.
 
 ```julia
 #| id: composition-construct
 """
-    Composite{T}(; kwargs...)
+    Composite{T, R}(; kwargs...)
 
 Construct a composite from flat keyword arguments. Each keyword goes to the
 part that has a field of that name.
 """
-function (::Type{Composite{T}})(; kwargs...) where {T <: Tuple}
+function (::Type{Composite{T, R}})(; kwargs...) where {T <: Tuple, R <: Tuple}
     types = fieldtypes(T)
     known = Set(Iterators.flatten(fieldnames.(types)))
     unknown = setdiff(keys(kwargs), known)
     isempty(unknown) || error("unknown arguments: $(join(unknown, ", "))")
-    return Composite{T}(map(types) do P
+    return Composite{T, R}(map(types) do P
         P(; (k => v for (k, v) in kwargs if hasfield(P, k))...)
     end)
 end
@@ -196,7 +239,64 @@ function model_type(roots::Type...)
     names = collect(Iterators.flatten(fieldnames.(components)))
     duplicate = [n for n in unique(names) if count(==(n), names) > 1]
     isempty(duplicate) || error("field names defined by more than one component: $(duplicate)")
-    return Composite{Tuple{components...}}
+
+    roles = unique(R for C in components for R in requires(C) if isabstracttype(R))
+    rolemap = (RoleMap{R, findfirst(==(resolve(R, roots)), components)} for R in roles)
+    return Composite{Tuple{components...}, Tuple{rolemap...}}
+end
+```
+
+### Tests
+
+The tests use a role `A` that `X` fills by subtyping, a role `B` that `X` fills by trait, and a component `Y` that requires both.
+
+```julia
+#| file: test/ProceduralSpec.jl
+module ProceduralSpec
+using Test
+using ModuleMixins.Procedural
+import ModuleMixins.Procedural: requires, implements, default_implementation
+
+abstract type A end
+abstract type B end
+abstract type C end
+
+@kwdef struct X <: A
+    x::Int = 1
+end
+@kwdef struct Y
+    y::Int = 2
+end
+@kwdef struct Z <: A
+    z::Int = 3
+end
+
+requires(::Type{Y}) = (A, B)
+implements(::Type{X}, ::Type{B}) = true
+implements(::Type{X}, ::Type{C}) = true
+default_implementation(::Type{A}) = Z
+
+@testset "Procedural" begin
+    @test implements(X, A)
+    @test implements(X, B)
+    @test !implements(Z, B)
+
+    @test closure(Y, X) == (X, Y)
+    @test_throws ErrorException closure(Y)  # no default for B
+    @test_throws ErrorException closure(Y, X, Z)  # A filled twice
+
+    M = model_type(Y, X)
+    m = M(x = 10)
+    @test m.x == 10 && m.y == 2
+    @test component(m, A) === component(m, B) === component(m, X)
+    @test (@inferred component(m, B)) isa X
+
+    # C is not required by any component, so it is found at run time
+    @test component(m, C) isa X
+
+    @test_throws ErrorException M(w = 1)
+    @test_throws ErrorException component(m, Z)
+end
 end
 ```
 
@@ -214,9 +314,8 @@ flowchart TD
 
 ```julia
 #| file: examples/composition/elemental.jl
-include("composition.jl")
-using .Composition
-import .Composition: requires, default_implementation
+using ModuleMixins.Procedural
+import ModuleMixins.Procedural: requires, implements, default_implementation
 using Test
 
 <<elemental-components>>
@@ -256,7 +355,7 @@ default_implementation(::Type{AbstractSource}) = Constant.Input
 #| id: elemental-components
 module Double
     import ..AbstractSource, ..value, ..requires
-    using ..Composition: component
+    using ModuleMixins.Procedural: component
     @kwdef struct Input
         factor::Float64 = 2.0
     end
@@ -266,7 +365,7 @@ end
 
 module Square
     import ..AbstractSource, ..value, ..requires
-    using ..Composition: component
+    using ModuleMixins.Procedural: component
     struct Input end
     requires(::Type{Input}) = (AbstractSource,)
     value(::Input, model) = value(component(model, AbstractSource), model)^2
@@ -274,7 +373,7 @@ end
 
 module Sum
     import ..value, ..requires
-    using ..Composition: component
+    using ModuleMixins.Procedural: component
     import ..Double, ..Square
     struct Input end
     requires(::Type{Input}) = (Double.Input, Square.Input)
@@ -332,12 +431,55 @@ get_slope(m) = m.slope
 
 @test_throws ErrorException Model(colour = :red)
 @test_throws ErrorException model_type(Sum.Input, Ramp.Input, Constant.Input)
+```
+
+### One component, two roles
+
+A ramp also has a gradient. Suppose there is a second role, `AbstractGradient`, and a component `Slope` that reports the gradient of whatever fills that role. `Ramp` already subtypes `AbstractSource`, so it can't subtype `AbstractGradient` as well. Instead, the role is declared with `implements`. The declaration is made outside the `Ramp` module, as it would be if `Ramp` came from another package.
+
+```julia
+#| id: elemental-run
+abstract type AbstractGradient end
+function gradient end
+
+gradient(s::Ramp.Input, model) = s.slope
+implements(::Type{Ramp.Input}, ::Type{AbstractGradient}) = true
+
+module Slope
+    import ..AbstractGradient, ..value, ..gradient, ..requires
+    using ModuleMixins.Procedural: component
+    struct Input end
+    requires(::Type{Input}) = (AbstractGradient,)
+    value(::Input, model) = gradient(component(model, AbstractGradient), model)
+end
+```
+
+Selecting `Ramp` once fills both roles, so `Sum` and `Slope` read from the same part. `AbstractGradient` has no default implementation, so a model that needs a gradient without selecting `Ramp` is an error.
+
+```julia
+#| id: elemental-run
+const BothModel = model_type(Sum.Input, Slope.Input, Ramp.Input)
+@show closure(Sum.Input, Slope.Input, Ramp.Input)
+b = BothModel(slope = 2.0, x = 1.5)
+@show value(component(b, Sum.Input), b)
+@show value(component(b, Slope.Input), b)
+@test component(b, AbstractSource) === component(b, AbstractGradient)
+
+@inferred value(component(b, Slope.Input), b)
+@test_throws ErrorException model_type(Sum.Input, Slope.Input)
 println("all checks passed")
+```
+
+```
+closure(Sum.Input, Slope.Input, Ramp.Input) = (Main.Ramp.Input, Main.Double.Input, Main.Square.Input, Main.Sum.Input, Main.Slope.Input)
+value(component(b, Sum.Input), b) = 15.0
+value(component(b, Slope.Input), b) = 2.0
+all checks passed
 ```
 
 ## Porting the spring example
 
-Here is the [spring example](@ref "Example") on top of `Composition`. The structure stays the same: a `Time` component, a `Spring` component that depends on it, and a model. The differences:
+Here is the [spring example](@ref "Example") on top of `Procedural`. The structure stays the same: a `Time` component, a `Spring` component that depends on it, and a model. The differences:
 
 - `Spring` declares its dependency with `requires` instead of `@mixin`.
 - `initial_state` and `step!` are generic functions that dispatch on the component (the first argument). The composite versions loop over the parts in dependency order, which replaces `@constructor` and the hand-written `Model.step!`.
@@ -345,9 +487,8 @@ Here is the [spring example](@ref "Example") on top of `Composition`. The struct
 
 ```julia
 #| file: examples/composition/spring.jl
-include("composition.jl")
-using .Composition
-import .Composition: requires
+using ModuleMixins.Procedural
+import ModuleMixins.Procedural: requires
 using Unitful
 using CairoMakie
 
@@ -363,7 +504,7 @@ The common module defines the two generic functions, with a no-op default for co
 ```julia
 #| id: spring-common
 module Common
-    using ..Composition: Composite, parts, map_components
+    using ModuleMixins.Procedural: Composite, parts, map_components
 
     """
         initial_state(part, input)
@@ -457,7 +598,7 @@ A new component doesn't need anything from the namespaces of the components it b
 #| id: spring-damping
 module Damping
     using Unitful
-    import Main.Composition: requires
+    import ModuleMixins.Procedural: requires
     import Main.Common: step!
     import Main.Spring
 
@@ -529,27 +670,18 @@ Limitations shared with `@compose`:
 
 Both depend on which components end up in the model, so they can only be checked or resolved when the model is assembled.
 
-Limitations of this prototype:
+Limitation of this prototype:
 
-- **One role per component.** Roles are abstract types, and a Julia struct has only one supertype, so a component can implement only one role. The role also has to be chosen where the struct is defined. Since `@compose` has no roles at all, this limits a new feature rather than losing an existing one.
 - **No per-item records.** In CarboKitten, components contribute fields not only to the top-level input but also to each facies (`Production`, `CellularAutomaton`, `Denudation` and others each define a `Facies` struct), and `@compose` merges those as well. The prototype composes a single record per model. This is the only real regression.
 
 ## Lifting the limitations
 
 ### Roles as traits
 
-Role membership can be a method instead of a supertype:
+An earlier version of this prototype used subtyping as the only way to fill a role. Since a Julia struct has one supertype, chosen where the struct is defined, a component could fill only one role. Role membership is now the trait `implements(C, R)` (see [Requirements and roles](@ref)), which defaults to subtyping and can be extended anywhere. The example [One component, two roles](@ref) shows it in use. Two consequences of this design:
 
-```julia
-implements(::Type, ::Type) = false
-implements(::Type{Ramp.Input}, ::Type{AbstractSource}) = true
-implements(::Type{Ramp.Input}, ::Type{AbstractClock}) = true
-```
-
-`closure` and `component` then test `implements(C, R)` instead of `C <: R`. A component can fill any number of roles, and membership can be declared outside the module that defines the component, for example to adapt a component from another package. Two things to keep in mind:
-
-- `implements` is user-extensible, so it shouldn't be called from a `@generated` function: methods added after the generated function is defined aren't reliably seen. Instead, roles should be resolved in `model_type`, which runs at normal runtime, and the result stored in the composite type.
-- Methods can no longer dispatch on a role directly (`value(s::AbstractSource, model)`). Where that's needed, the usual Holy-trait pattern applies. In practice components find each other through `component(model, Role)`, which works the same either way.
+- `implements` is user-extensible, so it can't be called from the generator of a `@generated` function. Roles are therefore resolved in `model_type` and stored in the composite type as a role map. A role that no component in the model requires is still found by `component`, but at run time.
+- Methods can't dispatch on a role that is filled by trait (`value(s::AbstractSource, model)` only matches subtypes). Where that's needed, the usual Holy-trait pattern applies. In practice components find each other through `component(model, Role)`, which works either way.
 
 ### A local, module-level macro
 

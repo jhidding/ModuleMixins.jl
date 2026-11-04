@@ -1,13 +1,12 @@
 # ~/~ begin <<docs/src/41-composition.md#examples/composition/spring.jl>>[init]
-include("composition.jl")
-using .Composition
-import .Composition: requires
+using ModuleMixins.Procedural
+import ModuleMixins.Procedural: requires
 using Unitful
 using CairoMakie
 
 # ~/~ begin <<docs/src/41-composition.md#spring-common>>[init]
 module Common
-    using ..Composition: Composite, parts, map_components
+    using ModuleMixins.Procedural: Composite, parts, map_components
 
     """
         initial_state(part, input)
@@ -87,7 +86,7 @@ end
 # ~/~ begin <<docs/src/41-composition.md#spring-damping>>[init]
 module Damping
     using Unitful
-    import Main.Composition: requires
+    import ModuleMixins.Procedural: requires
     import Main.Common: step!
     import Main.Spring
 

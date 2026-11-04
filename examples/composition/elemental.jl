@@ -1,7 +1,6 @@
 # ~/~ begin <<docs/src/41-composition.md#examples/composition/elemental.jl>>[init]
-include("composition.jl")
-using .Composition
-import .Composition: requires, default_implementation
+using ModuleMixins.Procedural
+import ModuleMixins.Procedural: requires, implements, default_implementation
 using Test
 
 # ~/~ begin <<docs/src/41-composition.md#elemental-components>>[init]
@@ -30,7 +29,7 @@ default_implementation(::Type{AbstractSource}) = Constant.Input
 # ~/~ begin <<docs/src/41-composition.md#elemental-components>>[1]
 module Double
     import ..AbstractSource, ..value, ..requires
-    using ..Composition: component
+    using ModuleMixins.Procedural: component
     @kwdef struct Input
         factor::Float64 = 2.0
     end
@@ -40,7 +39,7 @@ end
 
 module Square
     import ..AbstractSource, ..value, ..requires
-    using ..Composition: component
+    using ModuleMixins.Procedural: component
     struct Input end
     requires(::Type{Input}) = (AbstractSource,)
     value(::Input, model) = value(component(model, AbstractSource), model)^2
@@ -48,7 +47,7 @@ end
 
 module Sum
     import ..value, ..requires
-    using ..Composition: component
+    using ModuleMixins.Procedural: component
     import ..Double, ..Square
     struct Input end
     requires(::Type{Input}) = (Double.Input, Square.Input)
@@ -81,6 +80,32 @@ get_slope(m) = m.slope
 
 @test_throws ErrorException Model(colour = :red)
 @test_throws ErrorException model_type(Sum.Input, Ramp.Input, Constant.Input)
+# ~/~ end
+# ~/~ begin <<docs/src/41-composition.md#elemental-run>>[3]
+abstract type AbstractGradient end
+function gradient end
+
+gradient(s::Ramp.Input, model) = s.slope
+implements(::Type{Ramp.Input}, ::Type{AbstractGradient}) = true
+
+module Slope
+    import ..AbstractGradient, ..value, ..gradient, ..requires
+    using ModuleMixins.Procedural: component
+    struct Input end
+    requires(::Type{Input}) = (AbstractGradient,)
+    value(::Input, model) = gradient(component(model, AbstractGradient), model)
+end
+# ~/~ end
+# ~/~ begin <<docs/src/41-composition.md#elemental-run>>[4]
+const BothModel = model_type(Sum.Input, Slope.Input, Ramp.Input)
+@show closure(Sum.Input, Slope.Input, Ramp.Input)
+b = BothModel(slope = 2.0, x = 1.5)
+@show value(component(b, Sum.Input), b)
+@show value(component(b, Slope.Input), b)
+@test component(b, AbstractSource) === component(b, AbstractGradient)
+
+@inferred value(component(b, Slope.Input), b)
+@test_throws ErrorException model_type(Sum.Input, Slope.Input)
 println("all checks passed")
 # ~/~ end
 # ~/~ end

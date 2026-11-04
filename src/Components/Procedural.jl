@@ -1,7 +1,7 @@
-# ~/~ begin <<docs/src/41-composition.md#examples/composition/composition.jl>>[init]
-module Composition
+# ~/~ begin <<docs/src/41-composition.md#src/Components/Procedural.jl>>[init]
+module Procedural
 
-export requires, default_implementation, closure, model_type,
+export requires, implements, default_implementation, closure, model_type,
     Composite, parts, component, map_components
 
 # ~/~ begin <<docs/src/41-composition.md#composition-requires>>[init]
@@ -14,6 +14,15 @@ depends on. Extend this for every component that has dependencies.
 requires(::Type) = ()
 
 """
+    implements(C::Type, R::Type)
+
+Whether component `C` fills role `R`. Defaults to `C <: R`. Extend this to
+let a component fill more than one role, or to declare a role for a
+component defined elsewhere.
+"""
+implements(C::Type, R::Type) = C <: R
+
+"""
     default_implementation(R::Type)
 
 The component used to fill role `R` if no component implementing `R` is
@@ -23,6 +32,22 @@ default_implementation(R::Type) =
     error("no component implementing role $(R) was selected, and there is no default")
 # ~/~ end
 # ~/~ begin <<docs/src/41-composition.md#composition-closure>>[init]
+"""
+    resolve(R::Type, roots)
+
+The component that fills requirement `R`. A concrete type is a component and
+resolves to itself. A role resolves to the one component in `roots` that
+implements it, or else to its `default_implementation`.
+"""
+function resolve(R::Type, roots)
+    isabstracttype(R) || return R
+    candidates = [C for C in roots if implements(C, R)]
+    length(candidates) > 1 &&
+        error("role $(R) is implemented by more than one component: $(candidates)")
+    isempty(candidates) || return only(candidates)
+    return default_implementation(R)
+end
+
 """
     closure(roots::Type...)
 
@@ -35,17 +60,8 @@ function closure(roots::Type...)
     order = Type[]
     visiting = Type[]
 
-    function resolve(R)
-        isabstracttype(R) || return R
-        candidates = [C for C in roots if C <: R]
-        length(candidates) > 1 &&
-            error("role $(R) is implemented by more than one component: $(candidates)")
-        isempty(candidates) || return only(candidates)
-        return default_implementation(R)
-    end
-
     function visit(T)
-        C = resolve(T)
+        C = resolve(T, roots)
         C in order && return
         C in visiting && error("cyclic requirement: $(join([visiting; C], " -> "))")
         push!(visiting, C)
@@ -60,15 +76,24 @@ end
 # ~/~ end
 # ~/~ begin <<docs/src/41-composition.md#composition-composite>>[init]
 """
-    Composite{T <: Tuple}
+    RoleMap{R, i}
+
+Marker type: role `R` is filled by part `i` of a composite.
+"""
+struct RoleMap{R, i} end
+
+"""
+    Composite{T <: Tuple, R <: Tuple}
 
 A value composed of parts, one per component. Properties are forwarded to the
 part that has a field of that name, so `c.x` works for any field `x` of any
-part.
+part. `R` is a tuple of `RoleMap` markers, recording which part fills each role.
 """
-struct Composite{T <: Tuple}
+struct Composite{T <: Tuple, R <: Tuple}
     parts::T
 end
+
+Composite(parts::Tuple) = Composite{typeof(parts), Tuple{}}(parts)
 
 parts(c::Composite) = getfield(c, :parts)
 
@@ -93,10 +118,20 @@ function Base.show(io::IO, c::Composite)
 end
 # ~/~ end
 # ~/~ begin <<docs/src/41-composition.md#composition-component>>[init]
-# Index of the part that is (or implements) `T`. Computed at compile time.
-@generated function _index(::Type{P}, ::Type{T}) where {P <: Tuple, T}
+# Index of the part that is (or implements) `T`. Computed at compile time,
+# except for roles that are neither in the role map nor filled by subtyping.
+@generated function _index(::Type{P}, ::Type{R}, ::Type{T}) where {P <: Tuple, R <: Tuple, T}
+    for m in fieldtypes(R)
+        m.parameters[1] === T && return m.parameters[2]
+    end
     i = findfirst(X -> X <: T, fieldtypes(P))
-    i === nothing ? :(error("no component of type $(T)")) : i
+    i === nothing ? :(_index_dynamic(P, T)) : i
+end
+
+function _index_dynamic(::Type{P}, ::Type{T}) where {P <: Tuple, T}
+    i = findfirst(X -> implements(X, T), fieldtypes(P))
+    i === nothing && error("no component of type, or implementing, $(T)")
+    return i
 end
 
 """
@@ -104,7 +139,7 @@ end
 
 The part of `c` that is of type `T`, or that implements role `T`.
 """
-component(c::Composite, ::Type{T}) where {T} = parts(c)[_index(typeof(parts(c)), T)]
+component(c::Composite{P, R}, ::Type{T}) where {P, R, T} = parts(c)[_index(P, R, T)]
 
 """
     map_components(f, c::Composite)
@@ -115,17 +150,17 @@ map_components(f, c::Composite) = Composite(Tuple(filter(!isnothing, map(f, part
 # ~/~ end
 # ~/~ begin <<docs/src/41-composition.md#composition-construct>>[init]
 """
-    Composite{T}(; kwargs...)
+    Composite{T, R}(; kwargs...)
 
 Construct a composite from flat keyword arguments. Each keyword goes to the
 part that has a field of that name.
 """
-function (::Type{Composite{T}})(; kwargs...) where {T <: Tuple}
+function (::Type{Composite{T, R}})(; kwargs...) where {T <: Tuple, R <: Tuple}
     types = fieldtypes(T)
     known = Set(Iterators.flatten(fieldnames.(types)))
     unknown = setdiff(keys(kwargs), known)
     isempty(unknown) || error("unknown arguments: $(join(unknown, ", "))")
-    return Composite{T}(map(types) do P
+    return Composite{T, R}(map(types) do P
         P(; (k => v for (k, v) in kwargs if hasfield(P, k))...)
     end)
 end
@@ -140,7 +175,10 @@ function model_type(roots::Type...)
     names = collect(Iterators.flatten(fieldnames.(components)))
     duplicate = [n for n in unique(names) if count(==(n), names) > 1]
     isempty(duplicate) || error("field names defined by more than one component: $(duplicate)")
-    return Composite{Tuple{components...}}
+
+    roles = unique(R for C in components for R in requires(C) if isabstracttype(R))
+    rolemap = (RoleMap{R, findfirst(==(resolve(R, roots)), components)} for R in roles)
+    return Composite{Tuple{components...}, Tuple{rolemap...}}
 end
 # ~/~ end
 
