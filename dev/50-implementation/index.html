@@ -51,6 +51,7 @@ include(&quot;Templates.jl&quot;)
 include(&quot;Mixins.jl&quot;)
 include(&quot;Structs.jl&quot;)
 include(&quot;Constructors.jl&quot;)
+include(&quot;Components/Procedural.jl&quot;)
 
 using MacroTools: @capture, postwalk
 import .Common: name, strip_syntax_version
@@ -77,6 +78,7 @@ using Test
     include(&quot;ConstructorsSpec.jl&quot;)
     include(&quot;ComposeSpec.jl&quot;)
     include(&quot;TemplateMixinSpec.jl&quot;)
+    include(&quot;ProceduralSpec.jl&quot;)
 end</code></pre><h2 id="Mixin-Pass"><a class="docs-heading-anchor" href="#Mixin-Pass">Mixin Pass</a><a id="Mixin-Pass-1"></a><a class="docs-heading-anchor-permalink" href="#Mixin-Pass" title="Permalink"></a></h2><p>The <code>MixinPass</code> now filters for appearances of the <code>@mixin &lt;Component&gt;</code> syntax and transforms them into <code>using ..&lt;Component&gt;</code>. This assumes that the symbols used are visible in the parent module. In the case of a template mixin, the template instantiation is created with a unique name (using <code>gensym</code>) and imported aliased to the original name.</p><pre><code class="language-julia hljs">#| file: src/Mixins.jl
 module Mixins
 
@@ -426,9 +428,9 @@ macro compose(mod)
         $(usings.items...)
         $(consts.items...)
         $(define_struct.(values(struct_items))...)
+        $(clean_body...)
         $((define_constructor(struct_items[c.return_type_name], c)
             for c in values(constructor_items))...)
-        $(clean_body...)
     end)))
 end</code></pre><h2 id="Templates"><a class="docs-heading-anchor" href="#Templates">Templates</a><a id="Templates-1"></a><a class="docs-heading-anchor-permalink" href="#Templates" title="Permalink"></a></h2><p>Templates are defined by adding an argument list to a <code>@compose module</code> definition, made possible by the following catch in the <code>@compose</code> macro.</p><pre><code class="language-julia hljs">#| id: catch-template-definition
 if !isempty(body) &amp;&amp; @capture(body[1], {raw_parameters__})
@@ -549,7 +551,7 @@ struct Constructor
 end
 
 function Base.:+(a::Constructor, b::Constructor)
-    @assert a.name == b.name
+    @assert a.name == b.name &quot;names should be the same $(a.name), $(b.name)&quot;
     @assert a.arg_names == b.arg_names
     @assert a.return_type_name == b.return_type_name
     @assert isdisjoint(first.(a.parts), first(b.parts))
@@ -587,7 +589,7 @@ function pass(p::CollectConstructorPass, expr)
     @capture(expr, @constructor constructor_expr_) || return no_match
     data = parse_constructor(constructor_expr)
 
-    key = data.return_type_name
+    key = data.name
     if key in keys(p.items)
         p.items[key] += data
     else
@@ -699,4 +701,4 @@ mermaid.initialize({
     startOnLoad: true,
     theme: "neutral"
 });
-</script></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../45-passes/">« Macro passes</a><a class="docs-footer-nextpage" href="../90-contributing/">Contributing guidelines »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Tuesday 3 November 2026 21:16">Tuesday 3 November 2026</span>. Using Julia version 1.10.13.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+</script></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../45-passes/">« Macro passes</a><a class="docs-footer-nextpage" href="../90-contributing/">Contributing guidelines »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Wednesday 4 November 2026 10:54">Wednesday 4 November 2026</span>. Using Julia version 1.10.13.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
