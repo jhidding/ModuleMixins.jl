@@ -690,7 +690,7 @@ struct Constructor
 end
 
 function Base.:+(a::Constructor, b::Constructor)
-    @assert a.name == b.name
+    @assert a.name == b.name "names should be the same $(a.name), $(b.name)"
     @assert a.arg_names == b.arg_names
     @assert a.return_type_name == b.return_type_name
     @assert isdisjoint(first.(a.parts), first(b.parts))
@@ -734,7 +734,7 @@ function pass(p::CollectConstructorPass, expr)
     @capture(expr, @constructor constructor_expr_) || return no_match
     data = parse_constructor(constructor_expr)
 
-    key = data.return_type_name
+    key = data.name
     if key in keys(p.items)
         p.items[key] += data
     else
