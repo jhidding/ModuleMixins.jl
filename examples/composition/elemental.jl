@@ -8,23 +8,25 @@ abstract type AbstractSource end
 function value end
 
 module Constant
-    import ..AbstractSource, ..value
-    @kwdef struct Input <: AbstractSource
+    import ..AbstractSource, ..value, ..implements
+    @kwdef struct Input
         c::Float64 = 1.0
     end
+    implements(::Val{Constant}, ::Type{AbstractSource}) = true
     value(s::Input, model) = s.c
 end
 
 module Ramp
-    import ..AbstractSource, ..value
-    @kwdef struct Input <: AbstractSource
+    import ..AbstractSource, ..value, ..implements
+    @kwdef struct Input
         slope::Float64 = 1.0
         x::Float64 = 0.0
     end
+    implements(::Val{Ramp}, ::Type{AbstractSource}) = true
     value(s::Input, model) = s.slope * s.x
 end
 
-default_implementation(::Type{AbstractSource}) = Constant.Input
+default_implementation(::Type{AbstractSource}) = Constant
 # ~/~ end
 # ~/~ begin <<docs/src/41-composition.md#elemental-components>>[1]
 module Double
@@ -33,7 +35,7 @@ module Double
     @kwdef struct Input
         factor::Float64 = 2.0
     end
-    requires(::Type{Input}) = (AbstractSource,)
+    requires(::Val{Double}) = (AbstractSource,)
     value(d::Input, model) = d.factor * value(component(model, AbstractSource), model)
 end
 
@@ -41,7 +43,7 @@ module Square
     import ..AbstractSource, ..value, ..requires
     using ModuleMixins.Procedural: component
     struct Input end
-    requires(::Type{Input}) = (AbstractSource,)
+    requires(::Val{Square}) = (AbstractSource,)
     value(::Input, model) = value(component(model, AbstractSource), model)^2
 end
 
@@ -50,24 +52,24 @@ module Sum
     using ModuleMixins.Procedural: component
     import ..Double, ..Square
     struct Input end
-    requires(::Type{Input}) = (Double.Input, Square.Input)
+    requires(::Val{Sum}) = (Double, Square)
     value(::Input, model) =
         value(component(model, Double.Input), model) +
         value(component(model, Square.Input), model)
 end
 # ~/~ end
 # ~/~ begin <<docs/src/41-composition.md#elemental-run>>[init]
-@show closure(Sum.Input)
+@show closure(Sum)
 
-const Model = model_type(Sum.Input)
+const Model = record_type(:Input, Sum)
 m = Model(c = 3.0, factor = 10.0)
 @show m
 @show m.c m.factor
 @show value(component(m, Sum.Input), m)
 # ~/~ end
 # ~/~ begin <<docs/src/41-composition.md#elemental-run>>[1]
-const RampModel = model_type(Sum.Input, Ramp.Input)
-@show closure(Sum.Input, Ramp.Input)
+const RampModel = record_type(:Input, Sum, Ramp)
+@show closure(Sum, Ramp)
 r = RampModel(slope = 2.0, x = 1.5)
 @show value(component(r, Sum.Input), r)
 # ~/~ end
@@ -79,33 +81,33 @@ get_slope(m) = m.slope
 @inferred value(component(r, Sum.Input), r)
 
 @test_throws ErrorException Model(colour = :red)
-@test_throws ErrorException model_type(Sum.Input, Ramp.Input, Constant.Input)
+@test_throws ErrorException record_type(:Input, Sum, Ramp, Constant)
 # ~/~ end
 # ~/~ begin <<docs/src/41-composition.md#elemental-run>>[3]
 abstract type AbstractGradient end
 function gradient end
 
 gradient(s::Ramp.Input, model) = s.slope
-implements(::Type{Ramp.Input}, ::Type{AbstractGradient}) = true
+implements(::Val{Ramp}, ::Type{AbstractGradient}) = true
 
 module Slope
     import ..AbstractGradient, ..value, ..gradient, ..requires
     using ModuleMixins.Procedural: component
     struct Input end
-    requires(::Type{Input}) = (AbstractGradient,)
+    requires(::Val{Slope}) = (AbstractGradient,)
     value(::Input, model) = gradient(component(model, AbstractGradient), model)
 end
 # ~/~ end
 # ~/~ begin <<docs/src/41-composition.md#elemental-run>>[4]
-const BothModel = model_type(Sum.Input, Slope.Input, Ramp.Input)
-@show closure(Sum.Input, Slope.Input, Ramp.Input)
+const BothModel = record_type(:Input, Sum, Slope, Ramp)
+@show closure(Sum, Slope, Ramp)
 b = BothModel(slope = 2.0, x = 1.5)
 @show value(component(b, Sum.Input), b)
 @show value(component(b, Slope.Input), b)
 @test component(b, AbstractSource) === component(b, AbstractGradient)
 
 @inferred value(component(b, Slope.Input), b)
-@test_throws ErrorException model_type(Sum.Input, Slope.Input)
+@test_throws ErrorException record_type(:Input, Sum, Slope)
 println("all checks passed")
 # ~/~ end
 # ~/~ end

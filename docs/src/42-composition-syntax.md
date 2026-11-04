@@ -3,7 +3,7 @@
 !!! note "Origin"
     This chapter, including the code in `src/Components/Syntactic.jl`, was written by Claude Opus 5.5 (Anthropic) at the request of Johan Hidding, on 2026-11-04.
 
-The [previous chapter](@ref "Composition by closure") composes models from components through a protocol of ordinary functions: `requires`, `implements`, `item_collection` and `item_part`. This chapter adds the `@component` macro, an optional shorthand for that protocol, as proposed in [A local, module-level macro](@ref).
+The [previous chapter](@ref "Composition by closure") composes models from components through a protocol of ordinary functions, `requires` and `implements`, and composes records from the structs that components define. This chapter adds the `@component` macro, an optional shorthand for that protocol.
 
 ```julia
 @component module Spring
@@ -20,29 +20,26 @@ The macro differs from `@compose` in one important way: it is purely local. It r
 
 ## Syntax
 
-Inside a `@component` module:
+Inside `@component module Name ... end`:
 
 | Declaration | Expands to |
 |---|---|
-| `@mixin A, B` | `import ..A, ..B` and `requires(::Type{<:Input}) = (A.Input, B.Input)` |
-| `@requires R` | adds `R` (a role or a component type) to `requires` |
-| `@implements R, S` | `implements(::Type{<:Input}, ::Type{R}) = true`, and the same for `S` |
-| `struct Facies` | `item_part(::Type{<:Input}, ::Val{:Facies}) = Facies` |
-| `facies::Vector{Facies}` in `Input` | `Input` gets a type parameter `Facies`, and `item_collection(::Type{<:Input}) = (:Facies,)` |
+| `@mixin A, B` | `import ..A, ..B` and `requires(::Val{Name}) = (A, B)` |
+| `@requires R` | adds `R` (a role or a component module) to `requires` |
+| `@implements R, S` | `implements(::Val{Name}, ::Type{R}) = true`, and the same for `S` |
+| a field type mentions struct `S` of the same module | the struct gets a type parameter `S` |
 
 Declarations can be separated by commas or spaces. `@mixin A` imports `A` from the parent module, just like the `@mixin` of `@compose` does. A qualified name, like `@mixin Main.Spring` or `@mixin SomePackage.Spring`, is not imported, and should resolve as written inside the component module. All method definitions refer to `ModuleMixins.Procedural` directly, so a component module needn't import `requires` or `implements`.
 
 The macro also checks for mistakes when the component is defined:
 
-- the module has to define a struct `Input`;
-- a `@mixin` has to name a module that defines `Input`;
-- a `@requires` or `@implements` has to name a type.
+- a `@mixin` has to name a module;
+- a `@requires` has to name a module or a type;
+- an `@implements` has to name a type.
 
-### Item structs
+### Contained records
 
-Every struct in a component module other than `Input` is a candidate item part. The macro declares it with `item_part`, keyed by the struct's name. That is harmless for structs that are never used as items, like a `State`: nothing asks for them.
-
-If the field types of `Input` mention one of these structs by name, that name becomes a type parameter of `Input`. This changes the meaning of `Facies` inside `Input`: it now stands for the composite of all `Facies` parts in the model. `model_type` substitutes that composite (see [Per-item records](@ref)), so users never see the parameter.
+A record contains another record when the type of one of its fields mentions the other record's struct. The previous chapter requires the containing struct to be parametric, with the parameter named after the contained record (see [Records](@ref)). The macro does this rewrite, so users don't see the type parameter. This works in any struct, not only `Input`. A struct that mentions its own name is a recursive type, not a record containing itself, and is left alone.
 
 ```julia
 # written
@@ -56,7 +53,7 @@ If the field types of `Input` mention one of these structs by name, that name be
     end
 end
 
-# expanded (roughly)
+# expanded
 module FaciesBase
     @kwdef struct Facies
         name::String
@@ -65,9 +62,6 @@ module FaciesBase
     @kwdef struct Input{Facies}
         facies::Vector{Facies} = []
     end
-
-    Procedural.item_collection(::Type{<:Input}) = (:Facies,)
-    Procedural.item_part(::Type{<:Input}, ::Val{:Facies}) = Facies
 end
 ```
 
@@ -126,7 +120,7 @@ macro mixin(args...)
 end
 
 """
-    @requires Types...
+    @requires Requirements...
 
 Declaration inside a `@component` module. See [`@component`](@ref).
 """
@@ -180,7 +174,7 @@ type_name(head) =
     head
 ```
 
-To find the item kinds of `Input`, collect the names of item structs that appear in its field types. A field is `name::T`, possibly with a default value (`@kwdef`) or marked `const`. Other expressions in the struct body, like inner constructors, are skipped.
+To find the records a struct contains, collect the names of other structs in the module that appear in its field types. A field is `name::T`, possibly with a default value (`@kwdef`) or marked `const`. Other expressions in the struct body, like inner constructors, are skipped.
 
 ```julia
 #| id: syntactic-structs
@@ -213,32 +207,28 @@ function mentioned(names, expr)
 end
 ```
 
-Adding type parameters to the struct head keeps a supertype in place. If `Input` already has type parameters, adding more would make the order ambiguous, so that is an error.
+Adding type parameters to the struct head keeps a supertype in place. `record_type` reads every type parameter as the name of a record, so a struct that contains records can't have type parameters of its own.
 
 ```julia
 #| id: syntactic-structs
 function add_parameters(head, params)
     Meta.isexpr(head, :<:) && return Expr(:<:, add_parameters(head.args[1], params), head.args[2])
     Meta.isexpr(head, :curly) &&
-        error("`Input` has per-item fields, so it can't have type parameters of its own")
+        error("struct $(head.args[1]) contains records, so it can't have type parameters of its own")
     return Expr(:curly, head, params...)
 end
 
 """
-    parameterize_input(expr, item_names)
+    parameterize(expr, struct_names)
 
-Rewrite the definition of `Input` in `expr`, so that every item struct in
-`item_names` that is mentioned in a field type becomes a type parameter.
-Returns the new expression and the item kinds, in parameter order.
+Rewrite the struct defined in `expr` (if any), so that every other struct in
+`struct_names` that is mentioned in a field type becomes a type parameter.
 """
-function parameterize_input(expr, item_names)
-    kinds = Symbol[]
-    new_expr = map_struct(expr) do s
-        append!(kinds, mentioned(item_names, Expr(:block, field_types(s)...)))
-        isempty(kinds) && return s
-        return Expr(:struct, s.args[1], add_parameters(s.args[2], kinds), s.args[3])
-    end
-    return new_expr, kinds
+parameterize(expr, struct_names) = map_struct(expr) do s
+    own = type_name(s.args[2])
+    contained = mentioned(filter(!=(own), struct_names), Expr(:block, field_types(s)...))
+    isempty(contained) && return s
+    return Expr(:struct, s.args[1], add_parameters(s.args[2], contained), s.args[3])
 end
 ```
 
@@ -249,30 +239,19 @@ Checks that need the value of a name can't be done during macro expansion, since
 ```julia
 #| id: syntactic-checks
 """
-    check_mixin(m, name)
+    check_declaration(x, valid, declaration, name)
 
-Check that `m`, named `name` in a `@mixin`, is a component module.
+Check that `x`, named `name` in `declaration`, is an instance of `valid`.
 """
-function check_mixin(m, name)
-    m isa Module || error("@mixin $(name): not a module")
-    isdefined(m, :Input) || error("@mixin $(name): module doesn't define `Input`, so it isn't a component")
-    return nothing
-end
-
-"""
-    check_type(T, declaration, name)
-
-Check that `T`, named `name` in `declaration`, is a type.
-"""
-function check_type(T, declaration, name)
-    T isa Type || error("$(declaration) $(name): not a type")
+function check_declaration(x, valid, declaration, name)
+    x isa valid || error("$(declaration) $(name): expected a $(valid), got $(typeof(x))")
     return nothing
 end
 ```
 
 ### The macro
 
-`@component` splits the module body into declarations and other statements, finds the structs, rewrites `Input`, and appends the method definitions. Method names are `GlobalRef`s to `Procedural`, so they extend the protocol functions whatever is in scope in the component module.
+`@component` splits the module body into declarations and other statements, rewrites the structs that contain records, and appends the method definitions. Inside the module, its own name refers to the module, so the methods dispatch on `Val{Name}`. Method names are `GlobalRef`s to `Procedural`, so they extend the protocol functions whatever is in scope in the component module.
 
 ```julia
 #| id: syntactic-component
@@ -282,25 +261,22 @@ mixin_import(_) = []
 """
     @component module Name
         [@mixin Components...]
-        [@requires Types...]
+        [@requires Requirements...]
         [@implements Roles...]
-        struct Input ... end
         ...
     end
 
-Define a component module. The module must define a struct `Input`. The
-declarations expand into methods of `ModuleMixins.Procedural`:
+Define a component module. The declarations expand into methods of
+`ModuleMixins.Procedural`:
 
 - `@mixin A, B`: import `A` and `B` from the parent module (if they are plain
-  names), and require their `Input` components.
-- `@requires R`: require role or component type `R`.
-- `@implements R`: `Input` implements role `R`.
+  names), and require them as components.
+- `@requires R`: require role or component `R`.
+- `@implements R`: the component implements role `R`.
 
-Every other struct `S` in the module is declared as the part this component
-contributes to items of kind `S` (`item_part`). If a field type of `Input`
-mentions such a struct, `Input` gets a type parameter in its place, which
-`model_type` fills with the composite of all parts of that kind
-(`item_collection`).
+If a field type of a struct mentions another struct `S` of the same module,
+the struct gets a type parameter `S`, which `record_type` fills with the
+composite of all parts of record `S`.
 """
 macro component(mod)
     mod = strip_syntax_version(mod)
@@ -322,30 +298,20 @@ macro component(mod)
     end
 
     struct_names = filter(!isnothing, struct_name.(statements))
-    :Input in struct_names || error("@component $(name): module doesn't define a struct `Input`")
-    item_names = filter(!=(:Input), struct_names)
-
-    kinds = Symbol[]
-    statements = map(statements) do expr
-        struct_name(expr) === :Input || return expr
-        new_expr, k = parameterize_input(expr, item_names)
-        append!(kinds, k)
-        return new_expr
-    end
+    statements = map(expr -> parameterize(expr, struct_names), statements)
 
     P(f) = GlobalRef(Procedural, f)
-    S(f) = GlobalRef(@__MODULE__, f)
-    input = :(::Type{<:Input})
-    requirement_list = [[:($m.Input) for m in mixins]; requirements]
+    check(x, valid, decl) =
+        :($(GlobalRef(@__MODULE__, :check_declaration))($x, $valid, $decl, $(QuoteNode(x))))
+    self = :(::$(GlobalRef(Base, :Val)){$name})
+    requirement_list = [mixins; requirements]
 
     definitions = [
-        (:($(S(:check_mixin))($m, $(QuoteNode(m)))) for m in mixins)...,
-        (:($(S(:check_type))($r, "@requires", $(QuoteNode(r)))) for r in requirements)...,
-        (:($(S(:check_type))($r, "@implements", $(QuoteNode(r)))) for r in roles)...,
-        (isempty(requirement_list) ? () : (:($(P(:requires))($input) = ($(requirement_list...),)),))...,
-        (:($(P(:implements))($input, ::Type{$r}) = true) for r in roles)...,
-        (isempty(kinds) ? () : (:($(P(:item_collection))($input) = $(Tuple(kinds))),))...,
-        (:($(P(:item_part))($input, ::Val{$(QuoteNode(s))}) = $s) for s in item_names)...,
+        (check(m, Module, "@mixin") for m in mixins)...,
+        (check(r, Union{Module, Type}, "@requires") for r in requirements)...,
+        (check(r, Type, "@implements") for r in roles)...,
+        (isempty(requirement_list) ? () : (:($(P(:requires))($self) = ($(requirement_list...),)),))...,
+        (:($(P(:implements))($self, ::Type{$r}) = true) for r in roles)...,
     ]
 
     new_body = Expr(:block,
@@ -358,7 +324,7 @@ end
 
 ## Tests
 
-The tests repeat the elemental example of the previous chapter, mixing components written with `@component` and by hand. The last part tests per-item records.
+The tests repeat the elemental example of the previous chapter, mixing components written with `@component` and by hand. The last part tests records.
 
 ```julia
 #| file: test/SyntacticSpec.jl
@@ -366,7 +332,7 @@ module SyntacticSpec
 using Test
 using ModuleMixins.Syntactic
 using ModuleMixins.Procedural
-import ModuleMixins.Procedural: default_implementation, requires, item_part
+import ModuleMixins.Procedural: default_implementation, requires
 
 abstract type AbstractSource end
 abstract type AbstractGradient end
@@ -386,13 +352,14 @@ end
 
 @component module Constant
     import ..AbstractSource, ..value
-    @kwdef struct Input <: AbstractSource
+    @implements AbstractSource
+    @kwdef struct Input
         c::Float64 = 1.0
     end
     value(s::Input, model) = s.c
 end
 
-default_implementation(::Type{AbstractSource}) = Constant.Input
+default_implementation(::Type{AbstractSource}) = Constant
 
 @component module Double
     import ..AbstractSource, ..value
@@ -409,7 +376,7 @@ module Square
     import ..AbstractSource, ..value, ..requires
     using ModuleMixins.Procedural: component
     struct Input end
-    requires(::Type{Input}) = (AbstractSource,)
+    requires(::Val{Square}) = (AbstractSource,)
     value(::Input, model) = value(component(model, AbstractSource), model)^2
 end
 
@@ -424,25 +391,20 @@ end
 end
 
 @testset "Syntactic" begin
-    @test requires(Sum.Input) == (Double.Input, Square.Input)
-    @test requires(Double.Input) == (AbstractSource,)
-    @test implements(Ramp.Input, AbstractGradient)
-    @test closure(Sum.Input) == (Constant.Input, Double.Input, Square.Input, Sum.Input)
+    @test requires(Sum) == (Double, Square)
+    @test requires(Double) == (AbstractSource,)
+    @test implements(Ramp, AbstractGradient)
+    @test !implements(Constant, AbstractGradient)
+    @test closure(Sum) == (Constant, Double, Square, Sum)
 
-    m = model_type(Sum.Input)(c = 3.0, factor = 10.0)
+    m = record_type(:Input, Sum)(c = 3.0, factor = 10.0)
     @test value(component(m, Sum.Input), m) == 39.0
-    r = model_type(Sum.Input, Ramp.Input)(slope = 2.0, x = 1.5)
+    r = record_type(:Input, Sum, Ramp)(slope = 2.0, x = 1.5)
     @test (@inferred value(component(r, Sum.Input), r)) == 15.0
     @test component(r, AbstractGradient) === component(r, AbstractSource)
-
-    # items are never declared for `Input` itself
-    @test item_part(Ramp.Input, Val(:Input)) === nothing
 end
 
 @testset "Syntactic errors" begin
-    @test_throws ErrorException macroexpand(@__MODULE__, :(@component module NoInput
-        struct State end
-    end))
     @test_throws ErrorException macroexpand(@__MODULE__, :(@component struct Input end))
     @test_throws ErrorException macroexpand(@__MODULE__, :(@component module Parametric
         struct Facies end
@@ -454,6 +416,10 @@ end
         @mixin AbstractSource
         struct Input end
     end
+    @test_throws ErrorException @eval @component module BadRequirement
+        @requires Base.sin
+        struct Input end
+    end
     @test_throws ErrorException @eval @component module BadRole
         @implements Base.sin
         struct Input end
@@ -462,15 +428,25 @@ end
 end
 
 @component module FaciesBase
+    @kwdef struct Layer
+        thickness::Float64 = 1.0
+    end
+
     @kwdef struct Facies
         name::String
+        layers::Vector{Layer} = []
     end
 
     """
-    Input with a documented field type.
+    Input with a docstring and a supertype.
     """
     @kwdef struct Input <: Any
         facies::Vector{Facies} = []
+    end
+
+    # recursive, not a record containing itself
+    struct Tree
+        children::Vector{Tree}
     end
 end
 
@@ -482,12 +458,12 @@ end
     @kwdef struct Input
         sea_level::Float64 = 0.0
     end
-    mutable struct State
-        height::Float64
+    @kwdef mutable struct State
+        height::Float64 = 0.0
     end
 end
 
-# contributes nothing per item
+# contributes nothing per facies
 @component module Time
     @mixin FaciesBase
     @kwdef struct Input
@@ -495,32 +471,38 @@ end
     end
 end
 
-@testset "Syntactic items" begin
-    @test item_collection(FaciesBase.Input) == (:Facies,)
-    @test item_part(Production.Input, Val(:Facies)) === Production.Facies
-    @test item_part(Production.Input, Val(:State)) === Production.State
-    @test item_part(Time.Input, Val(:Facies)) === nothing
+@testset "Syntactic records" begin
+    @test FaciesBase.Input isa UnionAll
+    @test FaciesBase.Facies isa UnionAll
+    @test FaciesBase.Layer isa DataType
+    @test FaciesBase.Tree isa DataType
 
-    M = model_type(Production.Input, Time.Input)
-    m = M(facies = [(name = "reef", rate = 2.0), (name = "lagoon",)], t_end = 5.0)
+    M = record_type(:Input, Production, Time)
+    m = M(facies = [(name = "reef", rate = 2.0, layers = [(thickness = 3.0,)]), (name = "lagoon",)],
+          t_end = 5.0)
     @test m.t_end == 5.0
     @test [f.name for f in m.facies] == ["reef", "lagoon"]
     @test [f.rate for f in m.facies] == [2.0, 0.0]
-    @test component(m.facies[1], Production.Facies) isa Production.Facies
-    @test component(m, FaciesBase.Input) isa FaciesBase.Input
+    @test m.facies[1].layers[1].thickness == 3.0
+    @test isempty(m.facies[2].layers)
+    @test component(m.facies[1], Production) isa Production.Facies
+    @test component(m, FaciesBase) isa FaciesBase.Input
     @test (@inferred (m -> m.facies[1].rate)(m)) == 2.0
 
+    S = record_type(:State, Production, Time)
+    @test S(height = 1.0).height == 1.0
+
     # only the base part
-    b = model_type(FaciesBase.Input)(facies = [(name = "a",)])
+    b = record_type(:Input, FaciesBase)(facies = [(name = "a",)])
     @test b.facies[1].name == "a"
-    @test_throws ErrorException model_type(FaciesBase.Input)(facies = [(rate = 1.0,)])
+    @test_throws ErrorException record_type(:Input, FaciesBase)(facies = [(rate = 1.0,)])
 end
 end
 ```
 
 ## Example: facies
 
-A small model in the style of CarboKitten. Facies have a name, production adds a rate per facies, and the model computes the total production over all facies. The `Production` component dispatches on its own `Facies` part, while reading the shared name through the composite.
+A small model in the style of CarboKitten. Facies have a name, production adds a rate per facies, and the model computes the total production over all facies. Each component dispatches on its own `Facies` part, while reading other fields through the composite.
 
 ```julia
 #| file: examples/composition/facies.jl
@@ -553,7 +535,7 @@ end
     total(input) = input.scale * sum(f.rate for f in input.facies)
 end
 
-const Model = model_type(Production.Input)
+const Model = record_type(:Input, Production)
 m = Model(scale = 2.0, facies = [(name = "reef", rate = 3.0), (name = "lagoon", rate = 1.0)])
 @show Production.total(m)
 for f in m.facies

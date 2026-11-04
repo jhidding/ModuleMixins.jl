@@ -1,73 +1,75 @@
 # ~/~ begin <<docs/src/41-composition.md#src/Components/Procedural.jl>>[init]
 module Procedural
 
-export requires, implements, default_implementation, closure, model_type,
-    Composite, parts, component, map_components, item_collection, item_part
+export requires, implements, default_implementation, closure,
+    record_part, record_type, Composite, parts, component, map_components
 
 # ~/~ begin <<docs/src/41-composition.md#composition-requires>>[init]
 """
-    requires(T::Type)
+    requires(::Val{M})
 
-The components (concrete types) or roles (abstract types) that component `T`
+The components (modules) or roles (abstract types) that component `M`
 depends on. Extend this for every component that has dependencies.
 """
-requires(::Type) = ()
+requires(::Val) = ()
+requires(M::Module) = requires(Val(M))
 
 """
-    implements(C::Type, R::Type)
+    implements(::Val{M}, R::Type)
 
-Whether component `C` fills role `R`. Defaults to `C <: R`. Extend this to
-let a component fill more than one role, or to declare a role for a
-component defined elsewhere.
+Whether component `M` fills role `R`. Defaults to `false`.
 """
-implements(C::Type, R::Type) = C <: R
+implements(::Val, ::Type) = false
+implements(M::Module, R::Type) = implements(Val(M), R)
 
 """
     default_implementation(R::Type)
 
-The component used to fill role `R` if no component implementing `R` is
-selected explicitly.
+The component (module) used to fill role `R` if no component implementing `R`
+is selected explicitly.
 """
 default_implementation(R::Type) =
     error("no component implementing role $(R) was selected, and there is no default")
 # ~/~ end
 # ~/~ begin <<docs/src/41-composition.md#composition-closure>>[init]
 """
-    resolve(R::Type, roots)
+    resolve(R, roots)
 
-The component that fills requirement `R`. A concrete type is a component and
-resolves to itself. A role resolves to the one component in `roots` that
-implements it, or else to its `default_implementation`.
+The component that fills requirement `R`. A module is a component and resolves
+to itself. A role resolves to the one component in `roots` that implements it,
+or else to its `default_implementation`.
 """
+resolve(M::Module, roots) = M
+
 function resolve(R::Type, roots)
-    isabstracttype(R) || return R
-    candidates = [C for C in roots if implements(C, R)]
+    candidates = [M for M in roots if implements(M, R)]
     length(candidates) > 1 &&
         error("role $(R) is implemented by more than one component: $(candidates)")
     isempty(candidates) || return only(candidates)
     return default_implementation(R)
 end
 
+resolve(x, roots) = error("requirement $(x) is neither a component (module) nor a role (type)")
+
 """
-    closure(roots::Type...)
+    closure(roots::Module...)
 
 Compute all components needed by `roots`, in dependency order (dependencies
-first), each component appearing once. Abstract requirements (roles) are
-resolved to a component implementing them: one of the `roots` if any, otherwise
-`default_implementation`.
+first), each component appearing once. Roles are resolved to a component
+implementing them: one of the `roots` if any, otherwise `default_implementation`.
 """
-function closure(roots::Type...)
-    order = Type[]
-    visiting = Type[]
+function closure(roots::Module...)
+    order = Module[]
+    visiting = Module[]
 
-    function visit(T)
-        C = resolve(T, roots)
-        C in order && return
-        C in visiting && error("cyclic requirement: $(join([visiting; C], " -> "))")
-        push!(visiting, C)
-        foreach(visit, requires(C))
+    function visit(R)
+        M = resolve(R, roots)
+        M in order && return
+        M in visiting && error("cyclic requirement: $(join([visiting; M], " -> "))")
+        push!(visiting, M)
+        foreach(visit, requires(M))
         pop!(visiting)
-        push!(order, C)
+        push!(order, M)
     end
 
     foreach(visit, roots)
@@ -118,28 +120,43 @@ function Base.show(io::IO, c::Composite)
 end
 # ~/~ end
 # ~/~ begin <<docs/src/41-composition.md#composition-component>>[init]
-# Index of the part that is (or implements) `T`. Computed at compile time,
-# except for roles that are neither in the role map nor filled by subtyping.
-@generated function _index(::Type{P}, ::Type{R}, ::Type{T}) where {P <: Tuple, R <: Tuple, T}
-    for m in fieldtypes(R)
-        m.parameters[1] === T && return m.parameters[2]
-    end
-    i = findfirst(X -> X <: T, fieldtypes(P))
-    i === nothing ? :(_index_dynamic(P, T)) : i
+# Index of the part defined in module `M`. Computed at compile time.
+@generated function _component_index(::Type{P}, ::Val{M}) where {P <: Tuple, M}
+    i = findfirst(X -> parentmodule(X) === M, fieldtypes(P))
+    i === nothing ? :(error("component $(M) has no part in this record")) : i
 end
 
-function _index_dynamic(::Type{P}, ::Type{T}) where {P <: Tuple, T}
-    i = findfirst(X -> implements(X, T), fieldtypes(P))
-    i === nothing && error("no component of type, or implementing, $(T)")
+# Index of the part of type `T`, or that implements role `T`. Computed at
+# compile time, except for roles that are not in the role map.
+@generated function _type_index(::Type{P}, ::Type{R}, ::Type{T}) where {P <: Tuple, R <: Tuple, T}
+    if isabstracttype(T)
+        for m in fieldtypes(R)
+            m.parameters[1] === T && return m.parameters[2]
+        end
+        return :(_role_index_dynamic(P, T))
+    end
+    i = findfirst(X -> X <: T, fieldtypes(P))
+    i === nothing ? :(error("no part of type $(T) in this record")) : i
+end
+
+function _role_index_dynamic(::Type{P}, ::Type{T}) where {P <: Tuple, T}
+    i = findfirst(X -> implements(parentmodule(X), T), fieldtypes(P))
+    i === nothing && error("no part implementing role $(T)")
     return i
 end
 
 """
-    component(c::Composite, T)
+    component(c::Composite, ::Val{M})
+    component(c::Composite, M::Module)
+    component(c::Composite, T::Type)
 
-The part of `c` that is of type `T`, or that implements role `T`.
+The part of `c` contributed by component `M`, the part of type `T`, or, if `T`
+is a role (an abstract type), the part contributed by the component that
+implements `T`. Pass a module as `Val(M)` for a type-stable lookup.
 """
-component(c::Composite{P, R}, ::Type{T}) where {P, R, T} = parts(c)[_index(P, R, T)]
+component(c::Composite{P}, ::Val{M}) where {P, M} = parts(c)[_component_index(P, Val(M))]
+component(c::Composite, M::Module) = component(c, Val(M))
+component(c::Composite{P, R}, ::Type{T}) where {P, R, T} = parts(c)[_type_index(P, R, T)]
 
 """
     map_components(f, c::Composite)
@@ -148,7 +165,71 @@ Apply `f` to every part of `c` and compose the results that aren't `nothing`.
 """
 map_components(f, c::Composite) = Composite(Tuple(filter(!isnothing, map(f, parts(c)))))
 # ~/~ end
-# ~/~ begin <<docs/src/41-composition.md#composition-construct>>[init]
+# ~/~ begin <<docs/src/41-composition.md#composition-records>>[init]
+"""
+    record_part(M::Module, name::Symbol)
+
+The part that component `M` contributes to record `name`: the type `M.name`
+if `M` defines it, otherwise `nothing`.
+"""
+function record_part(M::Module, name::Symbol)
+    isdefined(M, name) || return nothing
+    T = getfield(M, name)
+    T isa Type && parentmodule(T) === M ? T : nothing
+end
+
+"""
+    type_parameter_names(T)
+
+The names of the type parameters of a `UnionAll` type, in order.
+"""
+function type_parameter_names(T)
+    names = Symbol[]
+    while T isa UnionAll
+        push!(names, T.var.name)
+        T = T.body
+    end
+    return names
+end
+
+function check_unique_fields(types)
+    names = collect(Iterators.flatten(fieldnames.(types)))
+    duplicate = [n for n in unique(names) if count(==(n), names) > 1]
+    isempty(duplicate) || error("field names defined by more than one component: $(duplicate)")
+end
+
+"""
+    record_type(name::Symbol, roots::Module...)
+
+The `Composite` type of record `name`, for the closure of `roots`. It has one
+part for every component that defines a type `name`, in dependency order.
+"""
+function record_type(name::Symbol, roots::Module...)
+    components = closure(roots...)
+    roles = unique(R for M in components for R in requires(M) if R isa Type)
+    resolved = [R => resolve(R, roots) for R in roles]
+    return _record_type(name, components, resolved, Symbol[])
+end
+
+function _record_type(name, components, resolved, visiting)
+    name in visiting && error("record $(name) contains itself: $(join([visiting; name], " -> "))")
+    owners = [M for M in components if record_part(M, name) !== nothing]
+    isempty(owners) && error("no component defines a record part `$(name)`")
+
+    push!(visiting, name)
+    record_parts = map(owners) do M
+        P = record_part(M, name)
+        inner = type_parameter_names(P)
+        isempty(inner) ? P : P{map(n -> _record_type(n, components, resolved, visiting), inner)...}
+    end
+    pop!(visiting)
+
+    check_unique_fields(record_parts)
+    rolemap = [RoleMap{R, findfirst(==(M), owners)} for (R, M) in resolved if M in owners]
+    return Composite{Tuple{record_parts...}, Tuple{rolemap...}}
+end
+# ~/~ end
+# ~/~ begin <<docs/src/41-composition.md#composition-records>>[1]
 """
     Composite{T, R}(; kwargs...)
 
@@ -163,66 +244,6 @@ function (::Type{Composite{T, R}})(; kwargs...) where {T <: Tuple, R <: Tuple}
     return Composite{T, R}(map(types) do P
         P(; (k => v for (k, v) in kwargs if hasfield(P, k))...)
     end)
-end
-
-"""
-    model_type(roots::Type...)
-
-The `Composite` type for the closure of `roots`.
-"""
-function model_type(roots::Type...)
-    components = closure(roots...)
-    roles = unique(R for C in components for R in requires(C) if isabstracttype(R))
-    rolemap = (RoleMap{R, findfirst(==(resolve(R, roots)), components)} for R in roles)
-    concrete = map(C -> with_items(C, components), components)
-    check_unique_fields(concrete)
-    return Composite{Tuple{concrete...}, Tuple{rolemap...}}
-end
-
-function check_unique_fields(types)
-    names = collect(Iterators.flatten(fieldnames.(types)))
-    duplicate = [n for n in unique(names) if count(==(n), names) > 1]
-    isempty(duplicate) || error("field names defined by more than one component: $(duplicate)")
-end
-# ~/~ end
-# ~/~ begin <<docs/src/41-composition.md#composition-items>>[init]
-"""
-    item_collection(C::Type)
-
-The kinds of item (as symbols) that the type parameters of component `C`
-stand for, in order. Defaults to `()`.
-"""
-item_collection(::Type) = ()
-
-"""
-    item_part(C::Type, ::Val{name})
-
-The part that component `C` contributes to items of kind `name`, or `nothing`.
-"""
-item_part(::Type, ::Val) = nothing
-
-"""
-    item_type(name::Symbol, components)
-
-The `Composite` type of an item of kind `name`, with one part for every
-component in `components` that contributes to it.
-"""
-function item_type(name::Symbol, components)
-    contributions = map(C -> item_part(C, Val(name)), components)
-    item_parts = Tuple(P for P in contributions if P !== nothing)
-    isempty(item_parts) && error("no component contributes to items of kind $(name)")
-    check_unique_fields(item_parts)
-    return Composite{Tuple{item_parts...}, Tuple{}}
-end
-
-"""
-    with_items(C::Type, components)
-
-Component `C` with its item kinds substituted by their composite types.
-"""
-function with_items(C::Type, components)
-    kinds = item_collection(C)
-    isempty(kinds) ? C : C{map(k -> item_type(k, components), kinds)...}
 end
 
 Base.convert(::Type{C}, x::NamedTuple) where {C <: Composite} = C(; x...)

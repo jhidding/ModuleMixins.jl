@@ -72,7 +72,7 @@ module Spring
         velocity::typeof(1.0u"m/s")
     end
 
-    requires(::Type{Input}) = (Time.Input,)
+    requires(::Val{Spring}) = (Time,)
 
     initial_state(::Input, input) = State(input.initial_position, 0.0u"m/s")
 
@@ -94,16 +94,16 @@ module Damping
         damping::typeof(1.0u"s^-1")
     end
 
-    requires(::Type{Input}) = (Spring.Input,)
+    requires(::Val{Damping}) = (Spring,)
 
     step!(::Input, input, state) =
         (state.velocity -= input.damping * state.velocity * input.t_step)
 end
 # ~/~ end
 # ~/~ begin <<docs/src/41-composition.md#spring-run>>[init]
-const Model = model_type(Spring.Input)
-const DampedModel = model_type(Damping.Input)
-@show closure(Damping.Input)
+const Model = record_type(:Input, Spring)
+const DampedModel = record_type(:Input, Damping)
+@show closure(Damping)
 
 parameters = (
     t_step = 0.001u"s",

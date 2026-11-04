@@ -3,7 +3,7 @@ module SyntacticSpec
 using Test
 using ModuleMixins.Syntactic
 using ModuleMixins.Procedural
-import ModuleMixins.Procedural: default_implementation, requires, item_part
+import ModuleMixins.Procedural: default_implementation, requires
 
 abstract type AbstractSource end
 abstract type AbstractGradient end
@@ -23,13 +23,14 @@ end
 
 @component module Constant
     import ..AbstractSource, ..value
-    @kwdef struct Input <: AbstractSource
+    @implements AbstractSource
+    @kwdef struct Input
         c::Float64 = 1.0
     end
     value(s::Input, model) = s.c
 end
 
-default_implementation(::Type{AbstractSource}) = Constant.Input
+default_implementation(::Type{AbstractSource}) = Constant
 
 @component module Double
     import ..AbstractSource, ..value
@@ -46,7 +47,7 @@ module Square
     import ..AbstractSource, ..value, ..requires
     using ModuleMixins.Procedural: component
     struct Input end
-    requires(::Type{Input}) = (AbstractSource,)
+    requires(::Val{Square}) = (AbstractSource,)
     value(::Input, model) = value(component(model, AbstractSource), model)^2
 end
 
@@ -61,25 +62,20 @@ end
 end
 
 @testset "Syntactic" begin
-    @test requires(Sum.Input) == (Double.Input, Square.Input)
-    @test requires(Double.Input) == (AbstractSource,)
-    @test implements(Ramp.Input, AbstractGradient)
-    @test closure(Sum.Input) == (Constant.Input, Double.Input, Square.Input, Sum.Input)
+    @test requires(Sum) == (Double, Square)
+    @test requires(Double) == (AbstractSource,)
+    @test implements(Ramp, AbstractGradient)
+    @test !implements(Constant, AbstractGradient)
+    @test closure(Sum) == (Constant, Double, Square, Sum)
 
-    m = model_type(Sum.Input)(c = 3.0, factor = 10.0)
+    m = record_type(:Input, Sum)(c = 3.0, factor = 10.0)
     @test value(component(m, Sum.Input), m) == 39.0
-    r = model_type(Sum.Input, Ramp.Input)(slope = 2.0, x = 1.5)
+    r = record_type(:Input, Sum, Ramp)(slope = 2.0, x = 1.5)
     @test (@inferred value(component(r, Sum.Input), r)) == 15.0
     @test component(r, AbstractGradient) === component(r, AbstractSource)
-
-    # items are never declared for `Input` itself
-    @test item_part(Ramp.Input, Val(:Input)) === nothing
 end
 
 @testset "Syntactic errors" begin
-    @test_throws ErrorException macroexpand(@__MODULE__, :(@component module NoInput
-        struct State end
-    end))
     @test_throws ErrorException macroexpand(@__MODULE__, :(@component struct Input end))
     @test_throws ErrorException macroexpand(@__MODULE__, :(@component module Parametric
         struct Facies end
@@ -91,6 +87,10 @@ end
         @mixin AbstractSource
         struct Input end
     end
+    @test_throws ErrorException @eval @component module BadRequirement
+        @requires Base.sin
+        struct Input end
+    end
     @test_throws ErrorException @eval @component module BadRole
         @implements Base.sin
         struct Input end
@@ -99,15 +99,25 @@ end
 end
 
 @component module FaciesBase
+    @kwdef struct Layer
+        thickness::Float64 = 1.0
+    end
+
     @kwdef struct Facies
         name::String
+        layers::Vector{Layer} = []
     end
 
     """
-    Input with a documented field type.
+    Input with a docstring and a supertype.
     """
     @kwdef struct Input <: Any
         facies::Vector{Facies} = []
+    end
+
+    # recursive, not a record containing itself
+    struct Tree
+        children::Vector{Tree}
     end
 end
 
@@ -119,12 +129,12 @@ end
     @kwdef struct Input
         sea_level::Float64 = 0.0
     end
-    mutable struct State
-        height::Float64
+    @kwdef mutable struct State
+        height::Float64 = 0.0
     end
 end
 
-# contributes nothing per item
+# contributes nothing per facies
 @component module Time
     @mixin FaciesBase
     @kwdef struct Input
@@ -132,25 +142,31 @@ end
     end
 end
 
-@testset "Syntactic items" begin
-    @test item_collection(FaciesBase.Input) == (:Facies,)
-    @test item_part(Production.Input, Val(:Facies)) === Production.Facies
-    @test item_part(Production.Input, Val(:State)) === Production.State
-    @test item_part(Time.Input, Val(:Facies)) === nothing
+@testset "Syntactic records" begin
+    @test FaciesBase.Input isa UnionAll
+    @test FaciesBase.Facies isa UnionAll
+    @test FaciesBase.Layer isa DataType
+    @test FaciesBase.Tree isa DataType
 
-    M = model_type(Production.Input, Time.Input)
-    m = M(facies = [(name = "reef", rate = 2.0), (name = "lagoon",)], t_end = 5.0)
+    M = record_type(:Input, Production, Time)
+    m = M(facies = [(name = "reef", rate = 2.0, layers = [(thickness = 3.0,)]), (name = "lagoon",)],
+          t_end = 5.0)
     @test m.t_end == 5.0
     @test [f.name for f in m.facies] == ["reef", "lagoon"]
     @test [f.rate for f in m.facies] == [2.0, 0.0]
-    @test component(m.facies[1], Production.Facies) isa Production.Facies
-    @test component(m, FaciesBase.Input) isa FaciesBase.Input
+    @test m.facies[1].layers[1].thickness == 3.0
+    @test isempty(m.facies[2].layers)
+    @test component(m.facies[1], Production) isa Production.Facies
+    @test component(m, FaciesBase) isa FaciesBase.Input
     @test (@inferred (m -> m.facies[1].rate)(m)) == 2.0
 
+    S = record_type(:State, Production, Time)
+    @test S(height = 1.0).height == 1.0
+
     # only the base part
-    b = model_type(FaciesBase.Input)(facies = [(name = "a",)])
+    b = record_type(:Input, FaciesBase)(facies = [(name = "a",)])
     @test b.facies[1].name == "a"
-    @test_throws ErrorException model_type(FaciesBase.Input)(facies = [(rate = 1.0,)])
+    @test_throws ErrorException record_type(:Input, FaciesBase)(facies = [(rate = 1.0,)])
 end
 end
 # ~/~ end

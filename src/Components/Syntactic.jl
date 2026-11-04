@@ -33,7 +33,7 @@ macro mixin(args...)
 end
 
 """
-    @requires Types...
+    @requires Requirements...
 
 Declaration inside a `@component` module. See [`@component`](@ref).
 """
@@ -113,46 +113,31 @@ end
 function add_parameters(head, params)
     Meta.isexpr(head, :<:) && return Expr(:<:, add_parameters(head.args[1], params), head.args[2])
     Meta.isexpr(head, :curly) &&
-        error("`Input` has per-item fields, so it can't have type parameters of its own")
+        error("struct $(head.args[1]) contains records, so it can't have type parameters of its own")
     return Expr(:curly, head, params...)
 end
 
 """
-    parameterize_input(expr, item_names)
+    parameterize(expr, struct_names)
 
-Rewrite the definition of `Input` in `expr`, so that every item struct in
-`item_names` that is mentioned in a field type becomes a type parameter.
-Returns the new expression and the item kinds, in parameter order.
+Rewrite the struct defined in `expr` (if any), so that every other struct in
+`struct_names` that is mentioned in a field type becomes a type parameter.
 """
-function parameterize_input(expr, item_names)
-    kinds = Symbol[]
-    new_expr = map_struct(expr) do s
-        append!(kinds, mentioned(item_names, Expr(:block, field_types(s)...)))
-        isempty(kinds) && return s
-        return Expr(:struct, s.args[1], add_parameters(s.args[2], kinds), s.args[3])
-    end
-    return new_expr, kinds
+parameterize(expr, struct_names) = map_struct(expr) do s
+    own = type_name(s.args[2])
+    contained = mentioned(filter(!=(own), struct_names), Expr(:block, field_types(s)...))
+    isempty(contained) && return s
+    return Expr(:struct, s.args[1], add_parameters(s.args[2], contained), s.args[3])
 end
 # ~/~ end
 # ~/~ begin <<docs/src/42-composition-syntax.md#syntactic-checks>>[init]
 """
-    check_mixin(m, name)
+    check_declaration(x, valid, declaration, name)
 
-Check that `m`, named `name` in a `@mixin`, is a component module.
+Check that `x`, named `name` in `declaration`, is an instance of `valid`.
 """
-function check_mixin(m, name)
-    m isa Module || error("@mixin $(name): not a module")
-    isdefined(m, :Input) || error("@mixin $(name): module doesn't define `Input`, so it isn't a component")
-    return nothing
-end
-
-"""
-    check_type(T, declaration, name)
-
-Check that `T`, named `name` in `declaration`, is a type.
-"""
-function check_type(T, declaration, name)
-    T isa Type || error("$(declaration) $(name): not a type")
+function check_declaration(x, valid, declaration, name)
+    x isa valid || error("$(declaration) $(name): expected a $(valid), got $(typeof(x))")
     return nothing
 end
 # ~/~ end
@@ -163,25 +148,22 @@ mixin_import(_) = []
 """
     @component module Name
         [@mixin Components...]
-        [@requires Types...]
+        [@requires Requirements...]
         [@implements Roles...]
-        struct Input ... end
         ...
     end
 
-Define a component module. The module must define a struct `Input`. The
-declarations expand into methods of `ModuleMixins.Procedural`:
+Define a component module. The declarations expand into methods of
+`ModuleMixins.Procedural`:
 
 - `@mixin A, B`: import `A` and `B` from the parent module (if they are plain
-  names), and require their `Input` components.
-- `@requires R`: require role or component type `R`.
-- `@implements R`: `Input` implements role `R`.
+  names), and require them as components.
+- `@requires R`: require role or component `R`.
+- `@implements R`: the component implements role `R`.
 
-Every other struct `S` in the module is declared as the part this component
-contributes to items of kind `S` (`item_part`). If a field type of `Input`
-mentions such a struct, `Input` gets a type parameter in its place, which
-`model_type` fills with the composite of all parts of that kind
-(`item_collection`).
+If a field type of a struct mentions another struct `S` of the same module,
+the struct gets a type parameter `S`, which `record_type` fills with the
+composite of all parts of record `S`.
 """
 macro component(mod)
     mod = strip_syntax_version(mod)
@@ -203,30 +185,20 @@ macro component(mod)
     end
 
     struct_names = filter(!isnothing, struct_name.(statements))
-    :Input in struct_names || error("@component $(name): module doesn't define a struct `Input`")
-    item_names = filter(!=(:Input), struct_names)
-
-    kinds = Symbol[]
-    statements = map(statements) do expr
-        struct_name(expr) === :Input || return expr
-        new_expr, k = parameterize_input(expr, item_names)
-        append!(kinds, k)
-        return new_expr
-    end
+    statements = map(expr -> parameterize(expr, struct_names), statements)
 
     P(f) = GlobalRef(Procedural, f)
-    S(f) = GlobalRef(@__MODULE__, f)
-    input = :(::Type{<:Input})
-    requirement_list = [[:($m.Input) for m in mixins]; requirements]
+    check(x, valid, decl) =
+        :($(GlobalRef(@__MODULE__, :check_declaration))($x, $valid, $decl, $(QuoteNode(x))))
+    self = :(::$(GlobalRef(Base, :Val)){$name})
+    requirement_list = [mixins; requirements]
 
     definitions = [
-        (:($(S(:check_mixin))($m, $(QuoteNode(m)))) for m in mixins)...,
-        (:($(S(:check_type))($r, "@requires", $(QuoteNode(r)))) for r in requirements)...,
-        (:($(S(:check_type))($r, "@implements", $(QuoteNode(r)))) for r in roles)...,
-        (isempty(requirement_list) ? () : (:($(P(:requires))($input) = ($(requirement_list...),)),))...,
-        (:($(P(:implements))($input, ::Type{$r}) = true) for r in roles)...,
-        (isempty(kinds) ? () : (:($(P(:item_collection))($input) = $(Tuple(kinds))),))...,
-        (:($(P(:item_part))($input, ::Val{$(QuoteNode(s))}) = $s) for s in item_names)...,
+        (check(m, Module, "@mixin") for m in mixins)...,
+        (check(r, Union{Module, Type}, "@requires") for r in requirements)...,
+        (check(r, Type, "@implements") for r in roles)...,
+        (isempty(requirement_list) ? () : (:($(P(:requires))($self) = ($(requirement_list...),)),))...,
+        (:($(P(:implements))($self, ::Type{$r}) = true) for r in roles)...,
     ]
 
     new_body = Expr(:block,

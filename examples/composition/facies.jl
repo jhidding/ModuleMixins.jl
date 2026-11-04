@@ -28,7 +28,7 @@ end
     total(input) = input.scale * sum(f.rate for f in input.facies)
 end
 
-const Model = model_type(Production.Input)
+const Model = record_type(:Input, Production)
 m = Model(scale = 2.0, facies = [(name = "reef", rate = 3.0), (name = "lagoon", rate = 1.0)])
 @show Production.total(m)
 for f in m.facies
