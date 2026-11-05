@@ -1,7 +1,7 @@
 name = "ModuleMixins"
 uuid = "2b5f0a26-aae2-5c4c-af55-bc6d20297121"
 authors = ["Johan Hidding <j.hidding@esciencecenter.nl> and contributors"]
-version = "0.3.1"
+version = "0.4"
 
 [deps]
 MacroTools = "1914dd2f-81c6-5fcd-8719-6d5c9610ff09"
@@ -10,5 +10,5 @@ MacroTools = "1914dd2f-81c6-5fcd-8719-6d5c9610ff09"
 projects = ["docs", "test"]
 
 [compat]
-julia = "1.10"
+julia = "1.12"
 MacroTools = "0.5"
