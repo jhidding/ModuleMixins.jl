@@ -157,14 +157,38 @@ implements `T`. Pass a module as `Val(M)` for a type-stable lookup.
 &quot;&quot;&quot;
 component(c::Composite{P}, ::Val{M}) where {P, M} = parts(c)[_component_index(P, Val(M))]
 component(c::Composite, M::Module) = component(c, Val(M))
-component(c::Composite{P, R}, ::Type{T}) where {P, R, T} = parts(c)[_type_index(P, R, T)]
+component(c::Composite{P, R}, ::Type{T}) where {P, R, T} = parts(c)[_type_index(P, R, T)]</code></pre><p><code>map_components</code> applies a function to every part of a composite, and composes the results that aren&#39;t <code>nothing</code>. Typically, every component turns its part of one record into its part of another, say from <code>Input</code> to <code>State</code>. The results are dropped by recursion over the tuple, rather than with <code>filter</code>, so that the type of the new composite can be inferred.</p><p>The roles carry over: a role is filled by a component, so in the new composite, the role is filled by the part that comes from the same component, as <code>record_type</code> would have it. That part is found by the <code>parentmodule</code> of its type, so the new role map is computed at compile time as well. If no part of the result comes from that component, the role is dropped from the role map.</p><pre><code class="language-julia hljs">#| id: composition-component
+_drop_nothing(::Tuple{}) = ()
+_drop_nothing(t::Tuple) = _prepend(first(t), _drop_nothing(Base.tail(t)))
+_prepend(::Nothing, t) = t
+_prepend(x, t) = (x, t...)
+
+# The role map `R` of parts `P`, carried over to new parts `Q`: each role is
+# filled by the part of `Q` that comes from the same component. Computed at
+# compile time.
+@generated function _carry_roles(::Type{P}, ::Type{R}, ::Type{Q}) where {P &lt;: Tuple, R &lt;: Tuple, Q &lt;: Tuple}
+    maps = []
+    for m in fieldtypes(R)
+        role, i = m.parameters
+        M = parentmodule(fieldtype(P, i))
+        j = findfirst(X -&gt; parentmodule(X) === M, fieldtypes(Q))
+        j === nothing || push!(maps, RoleMap{role, j})
+    end
+    return Tuple{maps...}
+end
 
 &quot;&quot;&quot;
     map_components(f, c::Composite)
 
 Apply `f` to every part of `c` and compose the results that aren&#39;t `nothing`.
+A role of `c` is filled, in the result, by the part that comes from the same
+component (module), if there is one.
 &quot;&quot;&quot;
-map_components(f, c::Composite) = Composite(Tuple(filter(!isnothing, map(f, parts(c)))))</code></pre><h3 id="Records"><a class="docs-heading-anchor" href="#Records">Records</a><a id="Records-1"></a><a class="docs-heading-anchor-permalink" href="#Records" title="Permalink"></a></h3><p>A record is named by a symbol. Component <code>M</code> contributes to record <code>name</code> if it defines a type of that name: the binding <code>M.name</code> has to be a type whose <code>parentmodule</code> is <code>M</code>, so that a type imported from elsewhere doesn&#39;t count.</p><p>Records can contain other records. In CarboKitten, components contribute fields not only to the top-level input but also to each facies: <code>Production</code>, <code>CellularAutomaton</code> and <code>Denudation</code> each define a <code>Facies</code> struct. The part that holds the facies is then parametric, and its type parameter is named after the record it stands for:</p><pre><code class="language-julia hljs">@kwdef struct Input{Facies}
+function map_components(f, c::Composite{P, R}) where {P, R}
+    new_parts = _drop_nothing(map(f, parts(c)))
+    Q = typeof(new_parts)
+    return Composite{Q, _carry_roles(P, R, Q)}(new_parts)
+end</code></pre><h3 id="Records"><a class="docs-heading-anchor" href="#Records">Records</a><a id="Records-1"></a><a class="docs-heading-anchor-permalink" href="#Records" title="Permalink"></a></h3><p>A record is named by a symbol. Component <code>M</code> contributes to record <code>name</code> if it defines a type of that name: the binding <code>M.name</code> has to be a type whose <code>parentmodule</code> is <code>M</code>, so that a type imported from elsewhere doesn&#39;t count.</p><p>Records can contain other records. In CarboKitten, components contribute fields not only to the top-level input but also to each facies: <code>Production</code>, <code>CellularAutomaton</code> and <code>Denudation</code> each define a <code>Facies</code> struct. The part that holds the facies is then parametric, and its type parameter is named after the record it stands for:</p><pre><code class="language-julia hljs">@kwdef struct Input{Facies}
     facies::Vector{Facies} = []
 end</code></pre><p>Inside <code>Input</code>, <code>Facies</code> now stands for the composite of all <code>Facies</code> parts in the model. <code>record_type</code> builds that composite and substitutes it for the parameter. A record that (indirectly) contains itself is an error.</p><p>A part can also have type parameters that are not records. These are set by keyword arguments to <code>record_type</code>, and are matched by name. The typical use is storage: on a GPU, the arrays in a model&#39;s state have a different type than on the CPU, and a library like <a href="https://github.com/JuliaGPU/Adapt.jl">Adapt</a> needs the field types to be parameters to convert between the two.</p><pre><code class="language-julia hljs">@kwdef struct State{Storage &lt;: AbstractMatrix{Float64}}
     height::Storage
@@ -265,16 +289,13 @@ function (::Type{Composite{T, R}})(; kwargs...) where {T &lt;: Tuple, R &lt;: Tu
     end)
 end
 
-Base.convert(::Type{C}, x::NamedTuple) where {C &lt;: Composite} = C(; x...)</code></pre><h3 id="Adapt"><a class="docs-heading-anchor" href="#Adapt">Adapt</a><a id="Adapt-1"></a><a class="docs-heading-anchor-permalink" href="#Adapt" title="Permalink"></a></h3><p><a href="https://github.com/JuliaGPU/Adapt.jl">Adapt</a> converts the storage of nested structures, for instance to move a model state to the GPU, or to turn arrays into device arrays when they are passed to a kernel. A composite is adapted by adapting each of its parts. The result is again a composite, of a different type, but with the same role map. Each part has to support Adapt itself, typically by <code>Adapt.@adapt_structure</code>. A part that doesn&#39;t is returned unchanged, as Adapt does by default.</p><p>This method lives in a package extension, so <code>ModuleMixins</code> doesn&#39;t depend on Adapt.</p><pre><code class="language-julia hljs">#| file: ext/ModuleMixinsAdaptExt.jl
+Base.convert(::Type{C}, x::NamedTuple) where {C &lt;: Composite} = C(; x...)</code></pre><h3 id="Adapt"><a class="docs-heading-anchor" href="#Adapt">Adapt</a><a id="Adapt-1"></a><a class="docs-heading-anchor-permalink" href="#Adapt" title="Permalink"></a></h3><p><a href="https://github.com/JuliaGPU/Adapt.jl">Adapt</a> converts the storage of nested structures, for instance to move a model state to the GPU, or to turn arrays into device arrays when they are passed to a kernel. A composite is adapted by adapting each of its parts, with <code>map_components</code>. The result is again a composite, of a different type, and since every part stays with its component, with the same roles. Each part has to support Adapt itself, typically by <code>Adapt.@adapt_structure</code>. A part that doesn&#39;t is returned unchanged, as Adapt does by default.</p><p>This method lives in a package extension, so <code>ModuleMixins</code> doesn&#39;t depend on Adapt.</p><pre><code class="language-julia hljs">#| file: ext/ModuleMixinsAdaptExt.jl
 module ModuleMixinsAdaptExt
 
 using Adapt: Adapt, adapt
-using ModuleMixins.Procedural: Composite, parts
+using ModuleMixins.Procedural: Composite, map_components
 
-function Adapt.adapt_structure(to, c::Composite{T, R}) where {T, R}
-    adapted = map(p -&gt; adapt(to, p), parts(c))
-    return Composite{typeof(adapted), R}(adapted)
-end
+Adapt.adapt_structure(to, c::Composite) = map_components(p -&gt; adapt(to, p), c)
 
 end</code></pre><h3 id="Tests"><a class="docs-heading-anchor" href="#Tests">Tests</a><a id="Tests-1"></a><a class="docs-heading-anchor-permalink" href="#Tests" title="Permalink"></a></h3><p>The tests use components <code>X</code>, <code>Y</code> and <code>Z</code>. <code>Y</code> requires roles <code>A</code> and <code>B</code>, which <code>X</code> both fills, and <code>Z</code> is the default for <code>A</code>. Components <code>Owner</code> and <code>Extra</code> both contribute to the record <code>Item</code>, which <code>Owner.Input</code> contains.</p><pre><code class="language-julia hljs">#| file: test/ProceduralSpec.jl
 module ProceduralSpec
@@ -290,11 +311,17 @@ module X
     @kwdef struct Input
         x::Int = 1
     end
+    struct Output
+        x2::Int
+    end
 end
 
 module Y
     @kwdef struct Input
         y::Int = 2
+    end
+    struct Output
+        y2::Int
     end
 end
 
@@ -343,6 +370,26 @@ default_implementation(::Type{A}) = Z
     @test_throws ErrorException M(w = 1)
     @test_throws ErrorException component(m, Z)
     @test_throws ErrorException record_type(:State, Y, X)
+end
+
+output(p::X.Input) = X.Output(2p.x)
+output(p::Y.Input) = Y.Output(2p.y)
+
+@testset &quot;Procedural map_components&quot; begin
+    m = record_type(:Input, Y, X)(x = 10)
+    o = @inferred map_components(output, m)
+    @test o.x2 == 20 &amp;&amp; o.y2 == 4
+    @test (@inferred component(o, A)) isa X.Output
+    @test (@inferred component(o, B)) isa X.Output
+
+    # X contributes nothing, so its roles are dropped
+    d = @inferred map_components(p -&gt; p isa X.Input ? nothing : output(p), m)
+    @test parts(d) == (Y.Output(4),)
+    @test_throws ErrorException component(d, A)
+
+    # roles follow the component, not the position
+    s = map_components(p -&gt; p isa X.Input ? Y.Output(0) : X.Output(1), m)
+    @test component(s, A) === X.Output(1)
 end
 
 module Owner
@@ -679,4 +726,4 @@ mermaid.initialize({
     startOnLoad: true,
     theme: "neutral"
 });
-</script></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../40-studies/">« Etudes in Macro Programming</a><a class="docs-footer-nextpage" href="../42-composition-syntax/">Composition syntax »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.20.0 on <span class="colophon-date" title="Tuesday 10 November 2026 22:37">Tuesday 10 November 2026</span>. Using Julia version 1.10.13.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+</script></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../40-studies/">« Etudes in Macro Programming</a><a class="docs-footer-nextpage" href="../42-composition-syntax/">Composition syntax »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.20.0 on <span class="colophon-date" title="Tuesday 10 November 2026 22:57">Tuesday 10 November 2026</span>. Using Julia version 1.10.13.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
