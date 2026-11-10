@@ -12,7 +12,7 @@ module B
 end
 # ~/~ end
 # ~/~ begin <<docs/src/15-tutorial.md#tutorial1>>[1]
-using ModuleMixins.Procedural
+using ModuleMixins
 
 module C
     import ..requires, ..A, ..B

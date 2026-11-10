@@ -1,6 +1,5 @@
 # ~/~ begin <<docs/src/16-tutorial-syntax.md#examples/tutorial-syntax5.jl>>[init]
-using ModuleMixins.Syntactic
-using ModuleMixins.Procedural
+using ModuleMixins
 
 initial_state(part, input) = nothing
 initial_state(input::Composite) = map_components(p -> initial_state(p, input), input)

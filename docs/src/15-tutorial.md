@@ -29,7 +29,7 @@ Now we implement a module `C` that merges `A` and `B`. We indicate this relation
 
 ```julia
 #| id: tutorial1
-using ModuleMixins.Procedural
+using ModuleMixins
 
 module C
     import ..requires, ..A, ..B
@@ -58,7 +58,7 @@ Now, suppose both `A` and `B` depend on a common component `Time`.
 ```julia
 #| file: examples/tutorial2.jl
 #| id: tutorial2
-using ModuleMixins.Procedural
+using ModuleMixins
 
 module Time
     @kwdef struct S
@@ -119,7 +119,7 @@ Instead of directly depending on a module, it is possible to depend on a `Role`.
 ```julia
 #| file: examples/tutorial3.jl
 #| id: tutorial3
-using ModuleMixins.Procedural
+using ModuleMixins
 
 abstract type AbstractBuffer end
 buffer_push!(m, i) = buffer_push!(component(m, AbstractBuffer), i)
@@ -206,7 +206,7 @@ You may specify a default implementation of a role by dispatching the `default_i
 
 ```julia
 #| id: tutorial3
-import ModuleMixins.Procedural: default_implementation
+import ModuleMixins: default_implementation
 
 default_implementation(::Type{AbstractBuffer}) = ConstBuffer
 const DefaultModel = record_type(:S, A)
@@ -226,6 +226,8 @@ We need the `AgentSpec` type to be a type variable of the `Input` type. The para
 ```julia
 #| file: examples/tutorial4.jl
 #| id: tutorial4
+using ModuleMixins
+
 module AgentBase
     @kwdef struct AgentSpec
         name::String
@@ -294,7 +296,7 @@ Suppose we have a method that is defined on multiple component parts, and we wan
 
 ```julia
 #| file: examples/tutorial5.jl
-import ModuleMixins.Procedural: map_components, record_type, Composite
+import ModuleMixins: map_components, record_type, Composite
 
 initial_state(part, input) = nothing
 initial_state(input::Composite) = map_components(p -> initial_state(p, input), input)

@@ -1,5 +1,5 @@
 # ~/~ begin <<docs/src/15-tutorial.md#tutorial3>>[init]
-using ModuleMixins.Procedural
+using ModuleMixins
 
 abstract type AbstractBuffer end
 buffer_push!(m, i) = buffer_push!(component(m, AbstractBuffer), i)
@@ -60,7 +60,7 @@ const VectorModel = record_type(:S, A, VectorBuffer)
 A.run(VectorModel(repeat=5))
 # ~/~ end
 # ~/~ begin <<docs/src/15-tutorial.md#tutorial3>>[5]
-import ModuleMixins.Procedural: default_implementation
+import ModuleMixins: default_implementation
 
 default_implementation(::Type{AbstractBuffer}) = ConstBuffer
 const DefaultModel = record_type(:S, A)
