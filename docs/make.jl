@@ -13,11 +13,14 @@ makedocs(;
     sitename = "ModuleMixins.jl",
     format = Documenter.HTML(; canonical = "https://jhidding.github.io/ModuleMixins.jl"),
     pages = [
-        "index.md"
-        [
-            file for file in readdir(joinpath(@__DIR__, "src")) if
-            file != "index.md" && splitext(file)[2] == ".md"
-        ]
+        "index.md",
+        "15-tutorial.md",
+        "16-tutorial-syntax.md",
+        "41-composition.md",
+        "42-composition-syntax.md",
+        "90-contributing.md",
+        "91-developer.md",
+        "95-reference.md"
     ],
 )
 
