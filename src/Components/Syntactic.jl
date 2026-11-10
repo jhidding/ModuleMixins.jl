@@ -110,11 +110,13 @@ function mentioned(names, expr)
 end
 # ~/~ end
 # ~/~ begin <<docs/src/42-composition-syntax.md#syntactic-structs>>[2]
+parameter_name(p) = Meta.isexpr(p, :<:) || Meta.isexpr(p, :>:) ? p.args[1] : p
+
 function add_parameters(head, params)
     Meta.isexpr(head, :<:) && return Expr(:<:, add_parameters(head.args[1], params), head.args[2])
-    Meta.isexpr(head, :curly) &&
-        error("struct $(head.args[1]) contains records, so it can't have type parameters of its own")
-    return Expr(:curly, head, params...)
+    Meta.isexpr(head, :curly) || return Expr(:curly, head, params...)
+    own = parameter_name.(head.args[2:end])
+    return Expr(:curly, head.args..., filter(!in(own), params)...)
 end
 
 """

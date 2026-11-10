@@ -285,7 +285,7 @@ end
 
 !!! note "Type arguments"
 
-    Due to the mechanism of looking up names, it is currently not possible to have other type arguments that do not feed into a composite struct.
+    A type parameter that isn't named after a record is set by a keyword argument to `record_type`, for instance `record_type(:State, Model; Storage = Vector{Float64})`. Components that use the same parameter name share the setting. This is useful for storage that can live on the CPU or a GPU; see [Example: GPU storage](@ref).
 
 Composing Methods
 -----------------

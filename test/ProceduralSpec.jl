@@ -108,5 +108,60 @@ requires(::Val{Extra}) = (Owner,)
 
     @test_throws ErrorException record_type(:Input, Loop)
 end
+# ~/~ end
+# ~/~ begin <<docs/src/41-composition.md#test/ProceduralSpec.jl>>[1]
+module Grid
+    @kwdef struct Cell
+        label::String = ""
+    end
+    @kwdef struct State{Cell, Storage <: AbstractVector{<:AbstractFloat}}
+        cells::Vector{Cell} = []
+        height::Storage
+    end
+end
+
+module Growth
+    @kwdef struct Cell
+        rate::Float64 = 0.0
+    end
+    @kwdef mutable struct State{Storage}
+        growth::Storage
+    end
+end
+
+requires(::Val{Growth}) = (Grid,)
+
+module Clash
+    @kwdef struct State{Storage}
+        x::Storage
+    end
+    struct Storage end
+end
+
+using Adapt
+
+Adapt.@adapt_structure Grid.State
+Adapt.@adapt_structure Growth.State
+
+struct ToFloat32 end
+Adapt.adapt_storage(::ToFloat32, x::Vector{Float64}) = Float32.(x)
+
+@testset "Procedural type parameters" begin
+    S = record_type(:State, Growth; Storage = Vector{Float64}, Unused = Int)
+    @test isconcretetype(S)
+    s = S(cells = [(label = "a", rate = 1.0)], height = [1.0, 2.0], growth = [0.5, 0.5])
+    @test s.height isa Vector{Float64}
+    @test s.cells[1].rate == 1.0
+    @test (@inferred (s -> s.height[2])(s)) == 2.0
+
+    @test_throws ErrorException record_type(:State, Growth)  # Storage not given
+    @test_throws TypeError record_type(:State, Growth; Storage = Vector{Int})  # violates bound
+    @test_throws ErrorException record_type(:State, Clash; Storage = Int)  # record and keyword
+
+    t = adapt(ToFloat32(), s)
+    @test t.height isa Vector{Float32} && t.growth == Float32[0.5, 0.5]
+    @test t.cells == s.cells
+    @test component(t, Growth) isa Growth.State{Vector{Float32}}
+end
 end
 # ~/~ end

@@ -6,9 +6,16 @@ version = "0.4"
 [deps]
 MacroTools = "1914dd2f-81c6-5fcd-8719-6d5c9610ff09"
 
+[weakdeps]
+Adapt = "79e6a3ab-5dfb-504d-930d-738a2a938a0e"
+
+[extensions]
+ModuleMixinsAdaptExt = "Adapt"
+
 [workspace]
 projects = ["docs", "test"]
 
 [compat]
 julia = "1.12"
+Adapt = "4"
 MacroTools = "0.5"

@@ -199,28 +199,44 @@ function check_unique_fields(types)
 end
 
 """
-    record_type(name::Symbol, roots::Module...)
+    record_type(name::Symbol, roots::Module...; parameters...)
 
 The `Composite` type of record `name`, for the closure of `roots`. It has one
 part for every component that defines a type `name`, in dependency order.
+
+A type parameter of a part that is named after a record is filled with the
+composite type of that record. Any other type parameter is taken from
+`parameters`, by name.
 """
-function record_type(name::Symbol, roots::Module...)
+function record_type(name::Symbol, roots::Module...; parameters...)
     components = closure(roots...)
     roles = unique(R for M in components for R in requires(M) if R isa Type)
     resolved = [R => resolve(R, roots) for R in roles]
-    return _record_type(name, components, resolved, Symbol[])
+    return _record_type(name, components, resolved, NamedTuple(parameters), Symbol[])
 end
 
-function _record_type(name, components, resolved, visiting)
+is_record(name, components) = any(M -> record_part(M, name) !== nothing, components)
+
+function _record_type(name, components, resolved, parameters, visiting)
     name in visiting && error("record $(name) contains itself: $(join([visiting; name], " -> "))")
     owners = [M for M in components if record_part(M, name) !== nothing]
     isempty(owners) && error("no component defines a record part `$(name)`")
+
+    function parameter(P, n)
+        record = is_record(n, components)
+        given = haskey(parameters, n)
+        record && given &&
+            error("type parameter `$(n)` of $(P) names a record, and is also given as a keyword")
+        record && return _record_type(n, components, resolved, parameters, visiting)
+        given && return parameters[n]
+        error("type parameter `$(n)` of $(P) is not a record, and is not given as a keyword to `record_type`")
+    end
 
     push!(visiting, name)
     record_parts = map(owners) do M
         P = record_part(M, name)
         inner = type_parameter_names(P)
-        isempty(inner) ? P : P{map(n -> _record_type(n, components, resolved, visiting), inner)...}
+        isempty(inner) ? P : P{map(n -> parameter(P, n), inner)...}
     end
     pop!(visiting)
 

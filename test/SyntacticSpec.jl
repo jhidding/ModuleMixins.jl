@@ -77,12 +77,6 @@ end
 
 @testset "Syntactic errors" begin
     @test_throws ErrorException macroexpand(@__MODULE__, :(@component struct Input end))
-    @test_throws ErrorException macroexpand(@__MODULE__, :(@component module Parametric
-        struct Facies end
-        struct Input{T}
-            facies::Vector{Facies}
-        end
-    end))
     @test_throws ErrorException @eval @component module BadMixin
         @mixin AbstractSource
         struct Input end
@@ -142,6 +136,22 @@ end
     end
 end
 
+@component module Storing
+    @mixin FaciesBase
+    @kwdef struct Facies
+        depth::Float64 = 0.0
+    end
+    @kwdef struct State{Storage <: AbstractVector{Float64}}
+        facies::Vector{Facies} = []
+        level::Storage
+    end
+    # record parameter already written
+    @kwdef struct Input{Facies, Storage}
+        more_facies::Vector{Facies} = []
+        weights::Storage
+    end
+end
+
 @testset "Syntactic records" begin
     @test FaciesBase.Input isa UnionAll
     @test FaciesBase.Facies isa UnionAll
@@ -162,6 +172,16 @@ end
 
     S = record_type(:State, Production, Time)
     @test S(height = 1.0).height == 1.0
+
+    @test Storing.State isa UnionAll
+    @test Storing.State.var.name === :Storage
+    @test Storing.State.body.var.name === :Facies
+    @test Storing.Input.var.name === :Facies
+    @test Storing.Input.body.var.name === :Storage
+    P = record_type(:State, Storing; Storage = Vector{Float64})
+    @test isconcretetype(P)
+    p = P(facies = [(name = "reef", depth = 2.0)], level = [1.0])
+    @test p.level == [1.0] && p.facies[1].name == "reef" && p.facies[1].depth == 2.0
 
     # only the base part
     b = record_type(:Input, FaciesBase)(facies = [(name = "a",)])
