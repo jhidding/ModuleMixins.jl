@@ -1,6 +1,5 @@
 # ~/~ begin <<docs/src/15-tutorial.md#tutorial3>>[init]
 using ModuleMixins.Procedural
-import .implements
 
 abstract type AbstractBuffer end
 buffer_push!(m, i) = buffer_push!(component(m, AbstractBuffer), i)
@@ -11,7 +10,7 @@ module ConstBuffer
     import ..buffer_push!, ..buffer_pop!, ..implements, ..AbstractBuffer
 
     @kwdef struct S
-        buffer_value::Int
+        buffer_value::Int = 0
     end
 
     buffer_push!(s::S, item::Int) = nothing
@@ -59,4 +58,11 @@ A.run(ConstModel(repeat=5, buffer_value=9))
 
 const VectorModel = record_type(:S, A, VectorBuffer)
 A.run(VectorModel(repeat=5))
+# ~/~ end
+# ~/~ begin <<docs/src/15-tutorial.md#tutorial3>>[5]
+import ModuleMixins.Procedural: default_implementation
+
+default_implementation(::Type{AbstractBuffer}) = ConstBuffer
+const DefaultModel = record_type(:S, A)
+A.run(DefaultModel(repeat=5))
 # ~/~ end

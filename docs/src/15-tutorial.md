@@ -47,6 +47,9 @@ m = Model(x = 6, y = 7)
 print("x = $(m.x), y = $(m.y)")
 ```
 
+!!! note "Unique field names"
+    It is the responsibility of the user to have only unique field names. Having two parts contributing the same name to a record type is an error.
+
 Inheritance
 -----------
 
@@ -117,7 +120,6 @@ Instead of directly depending on a module, it is possible to depend on a `Role`.
 #| file: examples/tutorial3.jl
 #| id: tutorial3
 using ModuleMixins.Procedural
-import .implements
 
 abstract type AbstractBuffer end
 buffer_push!(m, i) = buffer_push!(component(m, AbstractBuffer), i)
@@ -134,7 +136,7 @@ module ConstBuffer
     import ..buffer_push!, ..buffer_pop!, ..implements, ..AbstractBuffer
 
     @kwdef struct S
-        buffer_value::Int
+        buffer_value::Int = 0
     end
 
     buffer_push!(s::S, item::Int) = nothing
@@ -198,20 +200,138 @@ A.run(VectorModel(repeat=5))
 
 It is illegal to instantiate a `Composite` type where not all required roles are fulfilled. Running `record_type(:S, A)` will trigger the error: `ERROR: no component implementing role AbstractBuffer was selected, and there is no default`.
 
+### Default Implementation
+
+You may specify a default implementation of a role by dispatching the `default_implementation` method.
+
+```julia
+#| id: tutorial3
+import ModuleMixins.Procedural: default_implementation
+
+default_implementation(::Type{AbstractBuffer}) = ConstBuffer
+const DefaultModel = record_type(:S, A)
+A.run(DefaultModel(repeat=5))
+```
+
+!!! note "One part per role"
+    When two selected components both implement the same role, an error is raised.
+
 Multiple Types
 --------------
 
 In some cases components affect not a single type, but a family of interacting types. For instance, in [CarboKitten](https://mindthegap-erc.github.io/CarboKitten.jl) (the motivating case for `ModuleMixins`) we have a large `Input` struct that contains a list of `Facies` definitions. Similarly, when doing agent-based modelling, you'd have a list of agent specifications in your input.
 
-We need the `AgentSpec` type to be a type variable of the `Input` type.
+We need the `AgentSpec` type to be a type variable of the `Input` type. The parameter name `AgentSpec` must be the same as the struct, as it is used to insert the correct composite type when `record_type` is called.
 
 ```julia
 #| file: examples/tutorial4.jl
 #| id: tutorial4
 module AgentBase
-    struct AgentSpec end
-    struct Input{AgentSpec}
+    @kwdef struct AgentSpec
+        name::String
+    end
+
+    @kwdef struct Input{AgentSpec}
         agent_specs::Vector{AgentSpec}
     end
 end
+```
+
+We can now expand on both the `Input` and `AgentSpec` structs.
+
+```julia
+#| id: tutorial4
+module Movement
+    import ..requires, ..AgentBase
+
+    @kwdef struct AgentSpec
+        speed::Float64 = 1.0
+    end
+
+    requires(::Val{Movement}) = (AgentBase,)
+end
+
+module Lifetime
+    import ..requires, ..AgentBase
+
+    @kwdef struct AgentSpec
+        max_age::Int
+    end
+
+    @kwdef struct Input
+        n_steps::Int
+    end
+
+    requires(::Val{Lifetime}) = (AgentBase,)
+end
+```
+
+The rest still works as expected.
+
+```julia
+#| id: tutorial4
+const Model = record_type(:Input, Movement, Lifetime)
+
+m = Model(
+    n_steps = 10,
+    agent_specs = [
+        (name = "rabbit", speed = 2.0, max_age = 5),
+        (name = "turtle", speed = 0.1, max_age = 100)])
+
+for a in m.agent_specs
+    println("$(a.name): speed $(a.speed), lives $(a.max_age) steps")
+end
+```
+
+!!! note "Type arguments"
+
+    Due to the mechanism of looking up names, it is currently not possible to have other type arguments that do not feed into a composite struct.
+
+Composing Methods
+-----------------
+
+Suppose we have a method that is defined on multiple component parts, and we want to call this method on every part automatically. One example we often see returning is to create a constructor for the composite type. In this case we turn an `Input` struct into a mutable `State` struct, using the `initial_state` method.
+
+```julia
+#| file: examples/tutorial5.jl
+import ModuleMixins.Procedural: map_components, record_type, Composite
+
+initial_state(part, input) = nothing
+initial_state(input::Composite) = map_components(p -> initial_state(p, input), input)
+
+module A
+    import ..initial_state
+
+    @kwdef struct Input
+        x0::Int
+    end
+
+    @kwdef mutable struct State
+        x::Int
+    end
+
+    initial_state(::Input, input) = State(x = input.x0)
+end
+
+module B
+    import ..initial_state
+
+    @kwdef struct Input
+        y0::Int
+    end
+
+    @kwdef mutable struct State
+        y::Int
+    end
+
+    initial_state(::Input, input) = State(y = input.y0)
+end
+
+module Model
+    import ..record_type, ..A, ..B
+    const Input = record_type(:Input, A, B)
+    const State = record_type(:State, A, B)
+end
+
+println(initial_state(Model.Input(x0=6, y0=7)))
 ```
