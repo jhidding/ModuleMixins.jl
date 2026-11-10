@@ -166,7 +166,11 @@ Apply `f` to every part of `c` and compose the results that aren&#39;t `nothing`
 &quot;&quot;&quot;
 map_components(f, c::Composite) = Composite(Tuple(filter(!isnothing, map(f, parts(c)))))</code></pre><h3 id="Records"><a class="docs-heading-anchor" href="#Records">Records</a><a id="Records-1"></a><a class="docs-heading-anchor-permalink" href="#Records" title="Permalink"></a></h3><p>A record is named by a symbol. Component <code>M</code> contributes to record <code>name</code> if it defines a type of that name: the binding <code>M.name</code> has to be a type whose <code>parentmodule</code> is <code>M</code>, so that a type imported from elsewhere doesn&#39;t count.</p><p>Records can contain other records. In CarboKitten, components contribute fields not only to the top-level input but also to each facies: <code>Production</code>, <code>CellularAutomaton</code> and <code>Denudation</code> each define a <code>Facies</code> struct. The part that holds the facies is then parametric, and its type parameter is named after the record it stands for:</p><pre><code class="language-julia hljs">@kwdef struct Input{Facies}
     facies::Vector{Facies} = []
-end</code></pre><p>Inside <code>Input</code>, <code>Facies</code> now stands for the composite of all <code>Facies</code> parts in the model. <code>record_type</code> builds that composite and substitutes it for the parameter. This means every type parameter of a part has to be a record name. A record that (indirectly) contains itself is an error.</p><p><code>record_type</code> computes the closure, resolves every role that a component in the model requires, and checks that no field name is defined by two parts of a record, since forwarding would be ambiguous otherwise.</p><pre><code class="language-julia hljs">#| id: composition-records
+end</code></pre><p>Inside <code>Input</code>, <code>Facies</code> now stands for the composite of all <code>Facies</code> parts in the model. <code>record_type</code> builds that composite and substitutes it for the parameter. A record that (indirectly) contains itself is an error.</p><p>A part can also have type parameters that are not records. These are set by keyword arguments to <code>record_type</code>, and are matched by name. The typical use is storage: on a GPU, the arrays in a model&#39;s state have a different type than on the CPU, and a library like <a href="https://github.com/JuliaGPU/Adapt.jl">Adapt</a> needs the field types to be parameters to convert between the two.</p><pre><code class="language-julia hljs">@kwdef struct State{Storage &lt;: AbstractMatrix{Float64}}
+    height::Storage
+end
+
+const CPUState = record_type(:State, Model; Storage = Matrix{Float64})</code></pre><p>Components that use the same parameter name share one setting, so a single keyword switches the storage of a whole model. Every type parameter must either name a record, or be given as a keyword, so that a record type is always concrete. A parameter that does both is ambiguous and also an error. Keywords that no part uses are ignored, so the same keywords can be passed for every record of a model.</p><p><code>record_type</code> computes the closure, resolves every role that a component in the model requires, and checks that no field name is defined by two parts of a record, since forwarding would be ambiguous otherwise.</p><pre><code class="language-julia hljs">#| id: composition-records
 &quot;&quot;&quot;
     record_part(M::Module, name::Symbol)
 
@@ -200,28 +204,44 @@ function check_unique_fields(types)
 end
 
 &quot;&quot;&quot;
-    record_type(name::Symbol, roots::Module...)
+    record_type(name::Symbol, roots::Module...; parameters...)
 
 The `Composite` type of record `name`, for the closure of `roots`. It has one
 part for every component that defines a type `name`, in dependency order.
+
+A type parameter of a part that is named after a record is filled with the
+composite type of that record. Any other type parameter is taken from
+`parameters`, by name.
 &quot;&quot;&quot;
-function record_type(name::Symbol, roots::Module...)
+function record_type(name::Symbol, roots::Module...; parameters...)
     components = closure(roots...)
     roles = unique(R for M in components for R in requires(M) if R isa Type)
     resolved = [R =&gt; resolve(R, roots) for R in roles]
-    return _record_type(name, components, resolved, Symbol[])
+    return _record_type(name, components, resolved, NamedTuple(parameters), Symbol[])
 end
 
-function _record_type(name, components, resolved, visiting)
+is_record(name, components) = any(M -&gt; record_part(M, name) !== nothing, components)
+
+function _record_type(name, components, resolved, parameters, visiting)
     name in visiting &amp;&amp; error(&quot;record $(name) contains itself: $(join([visiting; name], &quot; -&gt; &quot;))&quot;)
     owners = [M for M in components if record_part(M, name) !== nothing]
     isempty(owners) &amp;&amp; error(&quot;no component defines a record part `$(name)`&quot;)
+
+    function parameter(P, n)
+        record = is_record(n, components)
+        given = haskey(parameters, n)
+        record &amp;&amp; given &amp;&amp;
+            error(&quot;type parameter `$(n)` of $(P) names a record, and is also given as a keyword&quot;)
+        record &amp;&amp; return _record_type(n, components, resolved, parameters, visiting)
+        given &amp;&amp; return parameters[n]
+        error(&quot;type parameter `$(n)` of $(P) is not a record, and is not given as a keyword to `record_type`&quot;)
+    end
 
     push!(visiting, name)
     record_parts = map(owners) do M
         P = record_part(M, name)
         inner = type_parameter_names(P)
-        isempty(inner) ? P : P{map(n -&gt; _record_type(n, components, resolved, visiting), inner)...}
+        isempty(inner) ? P : P{map(n -&gt; parameter(P, n), inner)...}
     end
     pop!(visiting)
 
@@ -245,7 +265,18 @@ function (::Type{Composite{T, R}})(; kwargs...) where {T &lt;: Tuple, R &lt;: Tu
     end)
 end
 
-Base.convert(::Type{C}, x::NamedTuple) where {C &lt;: Composite} = C(; x...)</code></pre><h3 id="Tests"><a class="docs-heading-anchor" href="#Tests">Tests</a><a id="Tests-1"></a><a class="docs-heading-anchor-permalink" href="#Tests" title="Permalink"></a></h3><p>The tests use components <code>X</code>, <code>Y</code> and <code>Z</code>. <code>Y</code> requires roles <code>A</code> and <code>B</code>, which <code>X</code> both fills, and <code>Z</code> is the default for <code>A</code>. Components <code>Owner</code> and <code>Extra</code> both contribute to the record <code>Item</code>, which <code>Owner.Input</code> contains.</p><pre><code class="language-julia hljs">#| file: test/ProceduralSpec.jl
+Base.convert(::Type{C}, x::NamedTuple) where {C &lt;: Composite} = C(; x...)</code></pre><h3 id="Adapt"><a class="docs-heading-anchor" href="#Adapt">Adapt</a><a id="Adapt-1"></a><a class="docs-heading-anchor-permalink" href="#Adapt" title="Permalink"></a></h3><p><a href="https://github.com/JuliaGPU/Adapt.jl">Adapt</a> converts the storage of nested structures, for instance to move a model state to the GPU, or to turn arrays into device arrays when they are passed to a kernel. A composite is adapted by adapting each of its parts. The result is again a composite, of a different type, but with the same role map. Each part has to support Adapt itself, typically by <code>Adapt.@adapt_structure</code>. A part that doesn&#39;t is returned unchanged, as Adapt does by default.</p><p>This method lives in a package extension, so <code>ModuleMixins</code> doesn&#39;t depend on Adapt.</p><pre><code class="language-julia hljs">#| file: ext/ModuleMixinsAdaptExt.jl
+module ModuleMixinsAdaptExt
+
+using Adapt: Adapt, adapt
+using ModuleMixins.Procedural: Composite, parts
+
+function Adapt.adapt_structure(to, c::Composite{T, R}) where {T, R}
+    adapted = map(p -&gt; adapt(to, p), parts(c))
+    return Composite{typeof(adapted), R}(adapted)
+end
+
+end</code></pre><h3 id="Tests"><a class="docs-heading-anchor" href="#Tests">Tests</a><a id="Tests-1"></a><a class="docs-heading-anchor-permalink" href="#Tests" title="Permalink"></a></h3><p>The tests use components <code>X</code>, <code>Y</code> and <code>Z</code>. <code>Y</code> requires roles <code>A</code> and <code>B</code>, which <code>X</code> both fills, and <code>Z</code> is the default for <code>A</code>. Components <code>Owner</code> and <code>Extra</code> both contribute to the record <code>Item</code>, which <code>Owner.Input</code> contains.</p><pre><code class="language-julia hljs">#| file: test/ProceduralSpec.jl
 module ProceduralSpec
 using Test
 using ModuleMixins.Procedural
@@ -354,6 +385,59 @@ requires(::Val{Extra}) = (Owner,)
     @test_throws ErrorException record_type(:Input, Owner)(items = [(weight = 1.0,)])
 
     @test_throws ErrorException record_type(:Input, Loop)
+end</code></pre><p>Components <code>Grid</code> and <code>Growth</code> both have a type parameter <code>Storage</code>, and <code>Grid</code> also contains a record. To test Adapt, we use an adaptor that converts <code>Float64</code> vectors to <code>Float32</code>.</p><pre><code class="language-julia hljs">#| file: test/ProceduralSpec.jl
+module Grid
+    @kwdef struct Cell
+        label::String = &quot;&quot;
+    end
+    @kwdef struct State{Cell, Storage &lt;: AbstractVector{&lt;:AbstractFloat}}
+        cells::Vector{Cell} = []
+        height::Storage
+    end
+end
+
+module Growth
+    @kwdef struct Cell
+        rate::Float64 = 0.0
+    end
+    @kwdef mutable struct State{Storage}
+        growth::Storage
+    end
+end
+
+requires(::Val{Growth}) = (Grid,)
+
+module Clash
+    @kwdef struct State{Storage}
+        x::Storage
+    end
+    struct Storage end
+end
+
+using Adapt
+
+Adapt.@adapt_structure Grid.State
+Adapt.@adapt_structure Growth.State
+
+struct ToFloat32 end
+Adapt.adapt_storage(::ToFloat32, x::Vector{Float64}) = Float32.(x)
+
+@testset &quot;Procedural type parameters&quot; begin
+    S = record_type(:State, Growth; Storage = Vector{Float64}, Unused = Int)
+    @test isconcretetype(S)
+    s = S(cells = [(label = &quot;a&quot;, rate = 1.0)], height = [1.0, 2.0], growth = [0.5, 0.5])
+    @test s.height isa Vector{Float64}
+    @test s.cells[1].rate == 1.0
+    @test (@inferred (s -&gt; s.height[2])(s)) == 2.0
+
+    @test_throws ErrorException record_type(:State, Growth)  # Storage not given
+    @test_throws TypeError record_type(:State, Growth; Storage = Vector{Int})  # violates bound
+    @test_throws ErrorException record_type(:State, Clash; Storage = Int)  # record and keyword
+
+    t = adapt(ToFloat32(), s)
+    @test t.height isa Vector{Float32} &amp;&amp; t.growth == Float32[0.5, 0.5]
+    @test t.cells == s.cells
+    @test component(t, Growth) isa Growth.State{Vector{Float32}}
 end
 end</code></pre><h2 id="An-elemental-example"><a class="docs-heading-anchor" href="#An-elemental-example">An elemental example</a><a id="An-elemental-example-1"></a><a class="docs-heading-anchor-permalink" href="#An-elemental-example" title="Permalink"></a></h2><p>A small diamond: <code>Double</code> and <code>Square</code> both depend on a source of a value, and <code>Sum</code> depends on both. The source is a role, <code>AbstractSource</code>, with two implementations, <code>Constant</code> (the default) and <code>Ramp</code>. Every component has a <code>value</code> method that dispatches on the type of its own part.</p><div class="mermaid">flowchart TD
     Sum --&gt; Double --&gt; Source[AbstractSource]
@@ -595,4 +679,4 @@ mermaid.initialize({
     startOnLoad: true,
     theme: "neutral"
 });
-</script></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../40-studies/">« Etudes in Macro Programming</a><a class="docs-footer-nextpage" href="../42-composition-syntax/">Composition syntax »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.20.0 on <span class="colophon-date" title="Tuesday 10 November 2026 21:10">Tuesday 10 November 2026</span>. Using Julia version 1.10.13.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+</script></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../40-studies/">« Etudes in Macro Programming</a><a class="docs-footer-nextpage" href="../42-composition-syntax/">Composition syntax »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.20.0 on <span class="colophon-date" title="Tuesday 10 November 2026 22:37">Tuesday 10 November 2026</span>. Using Julia version 1.10.13.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
