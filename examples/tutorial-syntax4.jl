@@ -1,6 +1,5 @@
 # ~/~ begin <<docs/src/16-tutorial-syntax.md#tutorial-syntax4>>[init]
-using ModuleMixins.Syntactic
-using ModuleMixins.Procedural
+using ModuleMixins
 
 @component module AgentBase
     @kwdef struct AgentSpec

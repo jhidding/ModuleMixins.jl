@@ -1,5 +1,5 @@
 # ~/~ begin <<docs/src/15-tutorial.md#examples/tutorial5.jl>>[init]
-import ModuleMixins.Procedural: map_components, record_type, Composite
+import ModuleMixins: map_components, record_type, Composite
 
 initial_state(part, input) = nothing
 initial_state(input::Composite) = map_components(p -> initial_state(p, input), input)

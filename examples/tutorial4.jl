@@ -1,4 +1,6 @@
 # ~/~ begin <<docs/src/15-tutorial.md#tutorial4>>[init]
+using ModuleMixins
+
 module AgentBase
     @kwdef struct AgentSpec
         name::String

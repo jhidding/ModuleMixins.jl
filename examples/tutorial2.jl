@@ -1,5 +1,5 @@
 # ~/~ begin <<docs/src/15-tutorial.md#tutorial2>>[init]
-using ModuleMixins.Procedural
+using ModuleMixins
 
 module Time
     @kwdef struct S

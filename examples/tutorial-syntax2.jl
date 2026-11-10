@@ -1,6 +1,5 @@
 # ~/~ begin <<docs/src/16-tutorial-syntax.md#tutorial-syntax2>>[init]
-using ModuleMixins.Syntactic
-using ModuleMixins.Procedural
+using ModuleMixins
 
 @component module Time
     @kwdef struct S

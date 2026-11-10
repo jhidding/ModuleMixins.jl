@@ -63,6 +63,13 @@ import .Templates: make_parameter, ModuleTemplate
 
 export @compose, @for_each
 
+using .Procedural
+using .Syntactic
+
+export requires, implements, default_implementation, closure,
+    record_part, record_type, Composite, parts, component, map_components
+export @component
+
 # ~/~ begin <<docs/src/50-implementation.md#compose>>[init]
 struct CollectUsingPass <: Pass
     items::Vector{Expr}

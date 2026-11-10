@@ -68,11 +68,20 @@ import .Templates: make_parameter, ModuleTemplate
 
 export @compose, @for_each
 
+using .Procedural
+using .Syntactic
+
+export requires, implements, default_implementation, closure,
+    record_part, record_type, Composite, parts, component, map_components
+export @component
+
 <<compose>>
 <<for-each>>
 
 end
 ```
+
+The composition API of `ModuleMixins.Procedural` and `ModuleMixins.Syntactic` (see [Composition by closure](@ref)) is exported from the main module as well, so `using ModuleMixins` is enough to use it.
 
 To facilitate testing, we need to be able to compare syntax. We use the `clean` function to remove source information from expressions.
 

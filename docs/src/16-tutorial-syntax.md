@@ -11,8 +11,7 @@ Modules `A` and `B` each define a struct `S`. Since they have no dependencies, `
 ```julia
 #| file: examples/tutorial-syntax1.jl
 #| id: tutorial-syntax1
-using ModuleMixins.Syntactic
-using ModuleMixins.Procedural
+using ModuleMixins
 
 @component module A
     @kwdef struct S
@@ -54,8 +53,7 @@ Both `A` and `B` depend on a common component `Time`.
 ```julia
 #| file: examples/tutorial-syntax2.jl
 #| id: tutorial-syntax2
-using ModuleMixins.Syntactic
-using ModuleMixins.Procedural
+using ModuleMixins
 
 @component module Time
     @kwdef struct S
@@ -109,8 +107,7 @@ The role `AbstractBuffer` and its interface are defined as before. Defining a ro
 ```julia
 #| file: examples/tutorial-syntax3.jl
 #| id: tutorial-syntax3
-using ModuleMixins.Syntactic
-using ModuleMixins.Procedural
+using ModuleMixins
 
 abstract type AbstractBuffer end
 function buffer_push! end
@@ -187,7 +184,7 @@ A default implementation of a role doesn't belong to any single component, so th
 
 ```julia
 #| id: tutorial-syntax3
-import ModuleMixins.Procedural: default_implementation
+import ModuleMixins: default_implementation
 
 default_implementation(::Type{AbstractBuffer}) = ConstBuffer
 const DefaultModel = record_type(:S, A)
@@ -204,8 +201,7 @@ Now for the family of interacting types: an `Input` containing a list of agent s
 ```julia
 #| file: examples/tutorial-syntax4.jl
 #| id: tutorial-syntax4
-using ModuleMixins.Syntactic
-using ModuleMixins.Procedural
+using ModuleMixins
 
 @component module AgentBase
     @kwdef struct AgentSpec
@@ -275,8 +271,7 @@ To call a method on every part of a composite, we use `map_components`. Here `in
 
 ```julia
 #| file: examples/tutorial-syntax5.jl
-using ModuleMixins.Syntactic
-using ModuleMixins.Procedural
+using ModuleMixins
 
 initial_state(part, input) = nothing
 initial_state(input::Composite) = map_components(p -> initial_state(p, input), input)

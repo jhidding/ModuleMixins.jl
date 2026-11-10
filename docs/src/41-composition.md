@@ -511,6 +511,16 @@ output(p::Y.Input) = Y.Output(2p.y)
     @test component(s, A) === X.Output(1)
 end
 
+import ModuleMixins
+
+@testset "Procedural exports" begin
+    for M in (ModuleMixins.Procedural, ModuleMixins.Syntactic)
+        exported = setdiff(names(M), [nameof(M)])
+        @test issubset(exported, names(ModuleMixins))
+        @test all(n -> getfield(ModuleMixins, n) === getfield(M, n), exported)
+    end
+end
+
 module Owner
     @kwdef struct Item
         name::String = ""
