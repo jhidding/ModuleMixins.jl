@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta name="referrer" content="no-referrer"/><title>Tutorial · ModuleMixins.jl</title><meta name="title" content="Tutorial · ModuleMixins.jl"/><meta property="og:title" content="Tutorial · ModuleMixins.jl"/><meta property="twitter:title" content="Tutorial · ModuleMixins.jl"/><meta name="description" content="Documentation for ModuleMixins.jl."/><meta property="og:description" content="Documentation for ModuleMixins.jl."/><meta property="twitter:description" content="Documentation for ModuleMixins.jl."/><meta property="og:url" content="https://jhidding.github.io/ModuleMixins.jl/15-tutorial/"/><meta property="twitter:url" content="https://jhidding.github.io/ModuleMixins.jl/15-tutorial/"/><link rel="canonical" href="https://jhidding.github.io/ModuleMixins.jl/15-tutorial/"/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.63.2/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../">ModuleMixins.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">ModuleMixins</a></li><li><a class="tocitem" href="../10-introduction/">Introduction</a></li><li class="is-active"><a class="tocitem" href>Tutorial</a><ul class="internal"><li><a class="tocitem" href="#Composing-Structs"><span>Composing Structs</span></a></li><li><a class="tocitem" href="#Inheritance"><span>Inheritance</span></a></li><li><a class="tocitem" href="#Abstraction"><span>Abstraction</span></a></li><li><a class="tocitem" href="#Multiple-Types"><span>Multiple Types</span></a></li></ul></li><li><a class="tocitem" href="../20-example/">Example</a></li><li><a class="tocitem" href="../30-blog/">Objects, Inheritance and Modules in Julia</a></li><li><a class="tocitem" href="../40-studies/">Etudes in Macro Programming</a></li><li><a class="tocitem" href="../41-composition/">Composition by closure</a></li><li><a class="tocitem" href="../42-composition-syntax/">Composition syntax</a></li><li><a class="tocitem" href="../45-passes/">Macro passes</a></li><li><a class="tocitem" href="../50-implementation/">Implementation</a></li><li><a class="tocitem" href="../90-contributing/">Contributing guidelines</a></li><li><a class="tocitem" href="../91-developer/">Developer documentation</a></li><li><a class="tocitem" href="../95-reference/">Reference</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Tutorial</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Tutorial</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/jhidding/ModuleMixins.jl/blob/main/docs/src/15-tutorial.md#" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Tutorial"><a class="docs-heading-anchor" href="#Tutorial">Tutorial</a><a id="Tutorial-1"></a><a class="docs-heading-anchor-permalink" href="#Tutorial" title="Permalink"></a></h1><div class="admonition is-info" id="New-System-d4e0843e089f84cf"><header class="admonition-header">New System<a class="admonition-anchor" href="#New-System-d4e0843e089f84cf" title="Permalink"></a></header><div class="admonition-body"><p>The new <code>ModuleMixins</code> system in version 0.4 has two components: a procedural part completely based on composition and dispatch, and a syntactic part that relieves some of the boilerplate.</p></div></div><h2 id="Composing-Structs"><a class="docs-heading-anchor" href="#Composing-Structs">Composing Structs</a><a id="Composing-Structs-1"></a><a class="docs-heading-anchor-permalink" href="#Composing-Structs" title="Permalink"></a></h2><p>We start small. We have two modules <code>A</code> and <code>B</code>, each with a struct <code>S</code>. The struct needs to be defined <code>@kwdef</code>.</p><pre><code class="language-julia hljs">#| file: examples/tutorial1.jl
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta name="referrer" content="no-referrer"/><title>Tutorial · ModuleMixins.jl</title><meta name="title" content="Tutorial · ModuleMixins.jl"/><meta property="og:title" content="Tutorial · ModuleMixins.jl"/><meta property="twitter:title" content="Tutorial · ModuleMixins.jl"/><meta name="description" content="Documentation for ModuleMixins.jl."/><meta property="og:description" content="Documentation for ModuleMixins.jl."/><meta property="twitter:description" content="Documentation for ModuleMixins.jl."/><meta property="og:url" content="https://jhidding.github.io/ModuleMixins.jl/15-tutorial/"/><meta property="twitter:url" content="https://jhidding.github.io/ModuleMixins.jl/15-tutorial/"/><link rel="canonical" href="https://jhidding.github.io/ModuleMixins.jl/15-tutorial/"/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.63.2/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../">ModuleMixins.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">ModuleMixins</a></li><li><a class="tocitem" href="../10-introduction/">Introduction</a></li><li class="is-active"><a class="tocitem" href>Tutorial</a><ul class="internal"><li><a class="tocitem" href="#Composing-Structs"><span>Composing Structs</span></a></li><li><a class="tocitem" href="#Inheritance"><span>Inheritance</span></a></li><li><a class="tocitem" href="#Abstraction"><span>Abstraction</span></a></li><li><a class="tocitem" href="#Multiple-Types"><span>Multiple Types</span></a></li><li><a class="tocitem" href="#Composing-Methods"><span>Composing Methods</span></a></li></ul></li><li><a class="tocitem" href="../16-tutorial-syntax/">Tutorial: Syntax</a></li><li><a class="tocitem" href="../20-example/">Example</a></li><li><a class="tocitem" href="../30-blog/">Objects, Inheritance and Modules in Julia</a></li><li><a class="tocitem" href="../40-studies/">Etudes in Macro Programming</a></li><li><a class="tocitem" href="../41-composition/">Composition by closure</a></li><li><a class="tocitem" href="../42-composition-syntax/">Composition syntax</a></li><li><a class="tocitem" href="../45-passes/">Macro passes</a></li><li><a class="tocitem" href="../50-implementation/">Implementation</a></li><li><a class="tocitem" href="../90-contributing/">Contributing guidelines</a></li><li><a class="tocitem" href="../91-developer/">Developer documentation</a></li><li><a class="tocitem" href="../95-reference/">Reference</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Tutorial</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Tutorial</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/jhidding/ModuleMixins.jl/blob/main/docs/src/15-tutorial.md#" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Tutorial"><a class="docs-heading-anchor" href="#Tutorial">Tutorial</a><a id="Tutorial-1"></a><a class="docs-heading-anchor-permalink" href="#Tutorial" title="Permalink"></a></h1><div class="admonition is-info" id="New-System-d4e0843e089f84cf"><header class="admonition-header">New System<a class="admonition-anchor" href="#New-System-d4e0843e089f84cf" title="Permalink"></a></header><div class="admonition-body"><p>The new <code>ModuleMixins</code> system in version 0.4 has two components: a procedural part completely based on composition and dispatch, and a syntactic part that relieves some of the boilerplate.</p></div></div><h2 id="Composing-Structs"><a class="docs-heading-anchor" href="#Composing-Structs">Composing Structs</a><a id="Composing-Structs-1"></a><a class="docs-heading-anchor-permalink" href="#Composing-Structs" title="Permalink"></a></h2><p>We start small. We have two modules <code>A</code> and <code>B</code>, each with a struct <code>S</code>. The struct needs to be defined <code>@kwdef</code>.</p><pre><code class="language-julia hljs">#| file: examples/tutorial1.jl
 #| id: tutorial1
 module A
     @kwdef struct S
@@ -21,7 +21,7 @@ end</code></pre><p>We can now instantiate a composite type using the <code>recor
 const Model = record_type(:S, C)
 
 m = Model(x = 6, y = 7)
-print(&quot;x = $(m.x), y = $(m.y)&quot;)</code></pre><h2 id="Inheritance"><a class="docs-heading-anchor" href="#Inheritance">Inheritance</a><a id="Inheritance-1"></a><a class="docs-heading-anchor-permalink" href="#Inheritance" title="Permalink"></a></h2><p>Now, suppose both <code>A</code> and <code>B</code> depend on a common component <code>Time</code>.</p><pre><code class="language-julia hljs">#| file: examples/tutorial2.jl
+print(&quot;x = $(m.x), y = $(m.y)&quot;)</code></pre><div class="admonition is-info" id="Unique-field-names-912d977216a54ea8"><header class="admonition-header">Unique field names<a class="admonition-anchor" href="#Unique-field-names-912d977216a54ea8" title="Permalink"></a></header><div class="admonition-body"><p>It is the responsibility of the user to have only unique field names. Having two parts contributing the same name to a record type is an error.</p></div></div><h2 id="Inheritance"><a class="docs-heading-anchor" href="#Inheritance">Inheritance</a><a id="Inheritance-1"></a><a class="docs-heading-anchor-permalink" href="#Inheritance" title="Permalink"></a></h2><p>Now, suppose both <code>A</code> and <code>B</code> depend on a common component <code>Time</code>.</p><pre><code class="language-julia hljs">#| file: examples/tutorial2.jl
 #| id: tutorial2
 using ModuleMixins.Procedural
 
@@ -57,7 +57,6 @@ println(&quot;t = $(m.t), x = $(m.x), y = $(m.y)&quot;)</code></pre><p>The <code
 @show component(m, Time)</code></pre><h2 id="Abstraction"><a class="docs-heading-anchor" href="#Abstraction">Abstraction</a><a id="Abstraction-1"></a><a class="docs-heading-anchor-permalink" href="#Abstraction" title="Permalink"></a></h2><p>Instead of directly depending on a module, it is possible to depend on a <code>Role</code>.</p><pre><code class="language-julia hljs">#| file: examples/tutorial3.jl
 #| id: tutorial3
 using ModuleMixins.Procedural
-import .implements
 
 abstract type AbstractBuffer end
 buffer_push!(m, i) = buffer_push!(component(m, AbstractBuffer), i)
@@ -66,7 +65,7 @@ module ConstBuffer
     import ..buffer_push!, ..buffer_pop!, ..implements, ..AbstractBuffer
 
     @kwdef struct S
-        buffer_value::Int
+        buffer_value::Int = 0
     end
 
     buffer_push!(s::S, item::Int) = nothing
@@ -107,16 +106,98 @@ const ConstModel = record_type(:S, A, ConstBuffer)
 A.run(ConstModel(repeat=5, buffer_value=9))
 
 const VectorModel = record_type(:S, A, VectorBuffer)
-A.run(VectorModel(repeat=5))</code></pre><p>It is illegal to instantiate a <code>Composite</code> type where not all required roles are fulfilled. Running <code>record_type(:S, A)</code> will trigger the error: <code>ERROR: no component implementing role AbstractBuffer was selected, and there is no default</code>.</p><h2 id="Multiple-Types"><a class="docs-heading-anchor" href="#Multiple-Types">Multiple Types</a><a id="Multiple-Types-1"></a><a class="docs-heading-anchor-permalink" href="#Multiple-Types" title="Permalink"></a></h2><p>In some cases components affect not a single type, but a family of interacting types. For instance, in <a href="https://mindthegap-erc.github.io/CarboKitten.jl">CarboKitten</a> (the motivating case for <code>ModuleMixins</code>) we have a large <code>Input</code> struct that contains a list of <code>Facies</code> definitions. Similarly, when doing agent-based modelling, you&#39;d have a list of agent specifications in your input.</p><p>We need the <code>AgentSpec</code> type to be a type variable of the <code>Input</code> type.</p><pre><code class="language-julia hljs">#| file: examples/tutorial4.jl
+A.run(VectorModel(repeat=5))</code></pre><p>It is illegal to instantiate a <code>Composite</code> type where not all required roles are fulfilled. Running <code>record_type(:S, A)</code> will trigger the error: <code>ERROR: no component implementing role AbstractBuffer was selected, and there is no default</code>.</p><h3 id="Default-Implementation"><a class="docs-heading-anchor" href="#Default-Implementation">Default Implementation</a><a id="Default-Implementation-1"></a><a class="docs-heading-anchor-permalink" href="#Default-Implementation" title="Permalink"></a></h3><p>You may specify a default implementation of a role by dispatching the <code>default_implementation</code> method.</p><pre><code class="language-julia hljs">#| id: tutorial3
+import ModuleMixins.Procedural: default_implementation
+
+default_implementation(::Type{AbstractBuffer}) = ConstBuffer
+const DefaultModel = record_type(:S, A)
+A.run(DefaultModel(repeat=5))</code></pre><div class="admonition is-info" id="One-part-per-role-6b0d7de47dbdc5d8"><header class="admonition-header">One part per role<a class="admonition-anchor" href="#One-part-per-role-6b0d7de47dbdc5d8" title="Permalink"></a></header><div class="admonition-body"><p>When two selected components both implement the same role, an error is raised.</p></div></div><h2 id="Multiple-Types"><a class="docs-heading-anchor" href="#Multiple-Types">Multiple Types</a><a id="Multiple-Types-1"></a><a class="docs-heading-anchor-permalink" href="#Multiple-Types" title="Permalink"></a></h2><p>In some cases components affect not a single type, but a family of interacting types. For instance, in <a href="https://mindthegap-erc.github.io/CarboKitten.jl">CarboKitten</a> (the motivating case for <code>ModuleMixins</code>) we have a large <code>Input</code> struct that contains a list of <code>Facies</code> definitions. Similarly, when doing agent-based modelling, you&#39;d have a list of agent specifications in your input.</p><p>We need the <code>AgentSpec</code> type to be a type variable of the <code>Input</code> type. The parameter name <code>AgentSpec</code> must be the same as the struct, as it is used to insert the correct composite type when <code>record_type</code> is called.</p><pre><code class="language-julia hljs">#| file: examples/tutorial4.jl
 #| id: tutorial4
 module AgentBase
-    struct AgentSpec end
-    struct Input{AgentSpec}
+    @kwdef struct AgentSpec
+        name::String
+    end
+
+    @kwdef struct Input{AgentSpec}
         agent_specs::Vector{AgentSpec}
     end
-end</code></pre><script type="module">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/+esm';
+end</code></pre><p>We can now expand on both the <code>Input</code> and <code>AgentSpec</code> structs.</p><pre><code class="language-julia hljs">#| id: tutorial4
+module Movement
+    import ..requires, ..AgentBase
+
+    @kwdef struct AgentSpec
+        speed::Float64 = 1.0
+    end
+
+    requires(::Val{Movement}) = (AgentBase,)
+end
+
+module Lifetime
+    import ..requires, ..AgentBase
+
+    @kwdef struct AgentSpec
+        max_age::Int
+    end
+
+    @kwdef struct Input
+        n_steps::Int
+    end
+
+    requires(::Val{Lifetime}) = (AgentBase,)
+end</code></pre><p>The rest still works as expected.</p><pre><code class="language-julia hljs">#| id: tutorial4
+const Model = record_type(:Input, Movement, Lifetime)
+
+m = Model(
+    n_steps = 10,
+    agent_specs = [
+        (name = &quot;rabbit&quot;, speed = 2.0, max_age = 5),
+        (name = &quot;turtle&quot;, speed = 0.1, max_age = 100)])
+
+for a in m.agent_specs
+    println(&quot;$(a.name): speed $(a.speed), lives $(a.max_age) steps&quot;)
+end</code></pre><div class="admonition is-info" id="Type-arguments-8435f91b22517cec"><header class="admonition-header">Type arguments<a class="admonition-anchor" href="#Type-arguments-8435f91b22517cec" title="Permalink"></a></header><div class="admonition-body"><p>Due to the mechanism of looking up names, it is currently not possible to have other type arguments that do not feed into a composite struct.</p></div></div><h2 id="Composing-Methods"><a class="docs-heading-anchor" href="#Composing-Methods">Composing Methods</a><a id="Composing-Methods-1"></a><a class="docs-heading-anchor-permalink" href="#Composing-Methods" title="Permalink"></a></h2><p>Suppose we have a method that is defined on multiple component parts, and we want to call this method on every part automatically. One example we often see returning is to create a constructor for the composite type. In this case we turn an <code>Input</code> struct into a mutable <code>State</code> struct, using the <code>initial_state</code> method.</p><pre><code class="language-julia hljs">#| file: examples/tutorial5.jl
+import ModuleMixins.Procedural: map_components, record_type, Composite
+
+initial_state(part, input) = nothing
+initial_state(input::Composite) = map_components(p -&gt; initial_state(p, input), input)
+
+module A
+    import ..initial_state
+
+    @kwdef struct Input
+        x0::Int
+    end
+
+    @kwdef mutable struct State
+        x::Int
+    end
+
+    initial_state(::Input, input) = State(x = input.x0)
+end
+
+module B
+    import ..initial_state
+
+    @kwdef struct Input
+        y0::Int
+    end
+
+    @kwdef mutable struct State
+        y::Int
+    end
+
+    initial_state(::Input, input) = State(y = input.y0)
+end
+
+module Model
+    import ..record_type, ..A, ..B
+    const Input = record_type(:Input, A, B)
+    const State = record_type(:State, A, B)
+end
+
+println(initial_state(Model.Input(x0=6, y0=7)))</code></pre><script type="module">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/+esm';
 mermaid.initialize({
     startOnLoad: true,
     theme: "neutral"
 });
-</script></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../10-introduction/">« Introduction</a><a class="docs-footer-nextpage" href="../20-example/">Example »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.20.0 on <span class="colophon-date" title="Saturday 7 November 2026 08:46">Saturday 7 November 2026</span>. Using Julia version 1.10.13.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+</script></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../10-introduction/">« Introduction</a><a class="docs-footer-nextpage" href="../16-tutorial-syntax/">Tutorial: Syntax »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.20.0 on <span class="colophon-date" title="Tuesday 10 November 2026 21:10">Tuesday 10 November 2026</span>. Using Julia version 1.10.13.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
