@@ -12,7 +12,7 @@ module B
         y::Int
     end
 end</code></pre><p>Now we implement a module <code>C</code> that merges <code>A</code> and <code>B</code>. We indicate this relation by dispatching on the <code>requires</code> method.</p><pre><code class="language-julia hljs">#| id: tutorial1
-using ModuleMixins.Procedural
+using ModuleMixins
 
 module C
     import ..requires, ..A, ..B
@@ -23,7 +23,7 @@ const Model = record_type(:S, C)
 m = Model(x = 6, y = 7)
 print(&quot;x = $(m.x), y = $(m.y)&quot;)</code></pre><div class="admonition is-info" id="Unique-field-names-912d977216a54ea8"><header class="admonition-header">Unique field names<a class="admonition-anchor" href="#Unique-field-names-912d977216a54ea8" title="Permalink"></a></header><div class="admonition-body"><p>It is the responsibility of the user to have only unique field names. Having two parts contributing the same name to a record type is an error.</p></div></div><h2 id="Inheritance"><a class="docs-heading-anchor" href="#Inheritance">Inheritance</a><a id="Inheritance-1"></a><a class="docs-heading-anchor-permalink" href="#Inheritance" title="Permalink"></a></h2><p>Now, suppose both <code>A</code> and <code>B</code> depend on a common component <code>Time</code>.</p><pre><code class="language-julia hljs">#| file: examples/tutorial2.jl
 #| id: tutorial2
-using ModuleMixins.Procedural
+using ModuleMixins
 
 module Time
     @kwdef struct S
@@ -56,7 +56,7 @@ println(&quot;t = $(m.t), x = $(m.x), y = $(m.y)&quot;)</code></pre><p>The <code
 @show component(m, A)
 @show component(m, Time)</code></pre><h2 id="Abstraction"><a class="docs-heading-anchor" href="#Abstraction">Abstraction</a><a id="Abstraction-1"></a><a class="docs-heading-anchor-permalink" href="#Abstraction" title="Permalink"></a></h2><p>Instead of directly depending on a module, it is possible to depend on a <code>Role</code>.</p><pre><code class="language-julia hljs">#| file: examples/tutorial3.jl
 #| id: tutorial3
-using ModuleMixins.Procedural
+using ModuleMixins
 
 abstract type AbstractBuffer end
 buffer_push!(m, i) = buffer_push!(component(m, AbstractBuffer), i)
@@ -107,12 +107,14 @@ A.run(ConstModel(repeat=5, buffer_value=9))
 
 const VectorModel = record_type(:S, A, VectorBuffer)
 A.run(VectorModel(repeat=5))</code></pre><p>It is illegal to instantiate a <code>Composite</code> type where not all required roles are fulfilled. Running <code>record_type(:S, A)</code> will trigger the error: <code>ERROR: no component implementing role AbstractBuffer was selected, and there is no default</code>.</p><h3 id="Default-Implementation"><a class="docs-heading-anchor" href="#Default-Implementation">Default Implementation</a><a id="Default-Implementation-1"></a><a class="docs-heading-anchor-permalink" href="#Default-Implementation" title="Permalink"></a></h3><p>You may specify a default implementation of a role by dispatching the <code>default_implementation</code> method.</p><pre><code class="language-julia hljs">#| id: tutorial3
-import ModuleMixins.Procedural: default_implementation
+import ModuleMixins: default_implementation
 
 default_implementation(::Type{AbstractBuffer}) = ConstBuffer
 const DefaultModel = record_type(:S, A)
 A.run(DefaultModel(repeat=5))</code></pre><div class="admonition is-info" id="One-part-per-role-6b0d7de47dbdc5d8"><header class="admonition-header">One part per role<a class="admonition-anchor" href="#One-part-per-role-6b0d7de47dbdc5d8" title="Permalink"></a></header><div class="admonition-body"><p>When two selected components both implement the same role, an error is raised.</p></div></div><h2 id="Multiple-Types"><a class="docs-heading-anchor" href="#Multiple-Types">Multiple Types</a><a id="Multiple-Types-1"></a><a class="docs-heading-anchor-permalink" href="#Multiple-Types" title="Permalink"></a></h2><p>In some cases components affect not a single type, but a family of interacting types. For instance, in <a href="https://mindthegap-erc.github.io/CarboKitten.jl">CarboKitten</a> (the motivating case for <code>ModuleMixins</code>) we have a large <code>Input</code> struct that contains a list of <code>Facies</code> definitions. Similarly, when doing agent-based modelling, you&#39;d have a list of agent specifications in your input.</p><p>We need the <code>AgentSpec</code> type to be a type variable of the <code>Input</code> type. The parameter name <code>AgentSpec</code> must be the same as the struct, as it is used to insert the correct composite type when <code>record_type</code> is called.</p><pre><code class="language-julia hljs">#| file: examples/tutorial4.jl
 #| id: tutorial4
+using ModuleMixins
+
 module AgentBase
     @kwdef struct AgentSpec
         name::String
@@ -156,7 +158,7 @@ m = Model(
 for a in m.agent_specs
     println(&quot;$(a.name): speed $(a.speed), lives $(a.max_age) steps&quot;)
 end</code></pre><div class="admonition is-info" id="Type-arguments-ee6ef6d234120fbb"><header class="admonition-header">Type arguments<a class="admonition-anchor" href="#Type-arguments-ee6ef6d234120fbb" title="Permalink"></a></header><div class="admonition-body"><p>A type parameter that isn&#39;t named after a record is set by a keyword argument to <code>record_type</code>, for instance <code>record_type(:State, Model; Storage = Vector{Float64})</code>. Components that use the same parameter name share the setting. This is useful for storage that can live on the CPU or a GPU; see <a href="../42-composition-syntax/#Example:-GPU-storage">Example: GPU storage</a>.</p></div></div><h2 id="Composing-Methods"><a class="docs-heading-anchor" href="#Composing-Methods">Composing Methods</a><a id="Composing-Methods-1"></a><a class="docs-heading-anchor-permalink" href="#Composing-Methods" title="Permalink"></a></h2><p>Suppose we have a method that is defined on multiple component parts, and we want to call this method on every part automatically. One example we often see returning is to create a constructor for the composite type. In this case we turn an <code>Input</code> struct into a mutable <code>State</code> struct, using the <code>initial_state</code> method.</p><pre><code class="language-julia hljs">#| file: examples/tutorial5.jl
-import ModuleMixins.Procedural: map_components, record_type, Composite
+import ModuleMixins: map_components, record_type, Composite
 
 initial_state(part, input) = nothing
 initial_state(input::Composite) = map_components(p -&gt; initial_state(p, input), input)
@@ -200,4 +202,4 @@ mermaid.initialize({
     startOnLoad: true,
     theme: "neutral"
 });
-</script></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../">« ModuleMixins</a><a class="docs-footer-nextpage" href="../16-tutorial-syntax/">Tutorial: Syntax »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.20.0 on <span class="colophon-date" title="Tuesday 10 November 2026 23:12">Tuesday 10 November 2026</span>. Using Julia version 1.10.13.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+</script></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../">« ModuleMixins</a><a class="docs-footer-nextpage" href="../16-tutorial-syntax/">Tutorial: Syntax »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.20.0 on <span class="colophon-date" title="Tuesday 10 November 2026 23:25">Tuesday 10 November 2026</span>. Using Julia version 1.10.13.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
