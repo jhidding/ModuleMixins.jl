@@ -219,13 +219,45 @@ implements `T`. Pass a module as `Val(M)` for a type-stable lookup.
 component(c::Composite{P}, ::Val{M}) where {P, M} = parts(c)[_component_index(P, Val(M))]
 component(c::Composite, M::Module) = component(c, Val(M))
 component(c::Composite{P, R}, ::Type{T}) where {P, R, T} = parts(c)[_type_index(P, R, T)]
+```
+
+`map_components` applies a function to every part of a composite, and composes the results that aren't `nothing`. Typically, every component turns its part of one record into its part of another, say from `Input` to `State`. The results are dropped by recursion over the tuple, rather than with `filter`, so that the type of the new composite can be inferred.
+
+The roles carry over: a role is filled by a component, so in the new composite, the role is filled by the part that comes from the same component, as `record_type` would have it. That part is found by the `parentmodule` of its type, so the new role map is computed at compile time as well. If no part of the result comes from that component, the role is dropped from the role map.
+
+```julia
+#| id: composition-component
+_drop_nothing(::Tuple{}) = ()
+_drop_nothing(t::Tuple) = _prepend(first(t), _drop_nothing(Base.tail(t)))
+_prepend(::Nothing, t) = t
+_prepend(x, t) = (x, t...)
+
+# The role map `R` of parts `P`, carried over to new parts `Q`: each role is
+# filled by the part of `Q` that comes from the same component. Computed at
+# compile time.
+@generated function _carry_roles(::Type{P}, ::Type{R}, ::Type{Q}) where {P <: Tuple, R <: Tuple, Q <: Tuple}
+    maps = []
+    for m in fieldtypes(R)
+        role, i = m.parameters
+        M = parentmodule(fieldtype(P, i))
+        j = findfirst(X -> parentmodule(X) === M, fieldtypes(Q))
+        j === nothing || push!(maps, RoleMap{role, j})
+    end
+    return Tuple{maps...}
+end
 
 """
     map_components(f, c::Composite)
 
 Apply `f` to every part of `c` and compose the results that aren't `nothing`.
+A role of `c` is filled, in the result, by the part that comes from the same
+component (module), if there is one.
 """
-map_components(f, c::Composite) = Composite(Tuple(filter(!isnothing, map(f, parts(c)))))
+function map_components(f, c::Composite{P, R}) where {P, R}
+    new_parts = _drop_nothing(map(f, parts(c)))
+    Q = typeof(new_parts)
+    return Composite{Q, _carry_roles(P, R, Q)}(new_parts)
+end
 ```
 
 ### Records
@@ -363,7 +395,7 @@ Base.convert(::Type{C}, x::NamedTuple) where {C <: Composite} = C(; x...)
 
 ### Adapt
 
-[Adapt](https://github.com/JuliaGPU/Adapt.jl) converts the storage of nested structures, for instance to move a model state to the GPU, or to turn arrays into device arrays when they are passed to a kernel. A composite is adapted by adapting each of its parts. The result is again a composite, of a different type, but with the same role map. Each part has to support Adapt itself, typically by `Adapt.@adapt_structure`. A part that doesn't is returned unchanged, as Adapt does by default.
+[Adapt](https://github.com/JuliaGPU/Adapt.jl) converts the storage of nested structures, for instance to move a model state to the GPU, or to turn arrays into device arrays when they are passed to a kernel. A composite is adapted by adapting each of its parts, with `map_components`. The result is again a composite, of a different type, and since every part stays with its component, with the same roles. Each part has to support Adapt itself, typically by `Adapt.@adapt_structure`. A part that doesn't is returned unchanged, as Adapt does by default.
 
 This method lives in a package extension, so `ModuleMixins` doesn't depend on Adapt.
 
@@ -372,12 +404,9 @@ This method lives in a package extension, so `ModuleMixins` doesn't depend on Ad
 module ModuleMixinsAdaptExt
 
 using Adapt: Adapt, adapt
-using ModuleMixins.Procedural: Composite, parts
+using ModuleMixins.Procedural: Composite, map_components
 
-function Adapt.adapt_structure(to, c::Composite{T, R}) where {T, R}
-    adapted = map(p -> adapt(to, p), parts(c))
-    return Composite{typeof(adapted), R}(adapted)
-end
+Adapt.adapt_structure(to, c::Composite) = map_components(p -> adapt(to, p), c)
 
 end
 ```
@@ -401,11 +430,17 @@ module X
     @kwdef struct Input
         x::Int = 1
     end
+    struct Output
+        x2::Int
+    end
 end
 
 module Y
     @kwdef struct Input
         y::Int = 2
+    end
+    struct Output
+        y2::Int
     end
 end
 
@@ -454,6 +489,26 @@ default_implementation(::Type{A}) = Z
     @test_throws ErrorException M(w = 1)
     @test_throws ErrorException component(m, Z)
     @test_throws ErrorException record_type(:State, Y, X)
+end
+
+output(p::X.Input) = X.Output(2p.x)
+output(p::Y.Input) = Y.Output(2p.y)
+
+@testset "Procedural map_components" begin
+    m = record_type(:Input, Y, X)(x = 10)
+    o = @inferred map_components(output, m)
+    @test o.x2 == 20 && o.y2 == 4
+    @test (@inferred component(o, A)) isa X.Output
+    @test (@inferred component(o, B)) isa X.Output
+
+    # X contributes nothing, so its roles are dropped
+    d = @inferred map_components(p -> p isa X.Input ? nothing : output(p), m)
+    @test parts(d) == (Y.Output(4),)
+    @test_throws ErrorException component(d, A)
+
+    # roles follow the component, not the position
+    s = map_components(p -> p isa X.Input ? Y.Output(0) : X.Output(1), m)
+    @test component(s, A) === X.Output(1)
 end
 
 module Owner

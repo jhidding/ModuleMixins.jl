@@ -2,12 +2,9 @@
 module ModuleMixinsAdaptExt
 
 using Adapt: Adapt, adapt
-using ModuleMixins.Procedural: Composite, parts
+using ModuleMixins.Procedural: Composite, map_components
 
-function Adapt.adapt_structure(to, c::Composite{T, R}) where {T, R}
-    adapted = map(p -> adapt(to, p), parts(c))
-    return Composite{typeof(adapted), R}(adapted)
-end
+Adapt.adapt_structure(to, c::Composite) = map_components(p -> adapt(to, p), c)
 
 end
 # ~/~ end

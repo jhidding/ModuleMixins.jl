@@ -157,13 +157,39 @@ implements `T`. Pass a module as `Val(M)` for a type-stable lookup.
 component(c::Composite{P}, ::Val{M}) where {P, M} = parts(c)[_component_index(P, Val(M))]
 component(c::Composite, M::Module) = component(c, Val(M))
 component(c::Composite{P, R}, ::Type{T}) where {P, R, T} = parts(c)[_type_index(P, R, T)]
+# ~/~ end
+# ~/~ begin <<docs/src/41-composition.md#composition-component>>[1]
+_drop_nothing(::Tuple{}) = ()
+_drop_nothing(t::Tuple) = _prepend(first(t), _drop_nothing(Base.tail(t)))
+_prepend(::Nothing, t) = t
+_prepend(x, t) = (x, t...)
+
+# The role map `R` of parts `P`, carried over to new parts `Q`: each role is
+# filled by the part of `Q` that comes from the same component. Computed at
+# compile time.
+@generated function _carry_roles(::Type{P}, ::Type{R}, ::Type{Q}) where {P <: Tuple, R <: Tuple, Q <: Tuple}
+    maps = []
+    for m in fieldtypes(R)
+        role, i = m.parameters
+        M = parentmodule(fieldtype(P, i))
+        j = findfirst(X -> parentmodule(X) === M, fieldtypes(Q))
+        j === nothing || push!(maps, RoleMap{role, j})
+    end
+    return Tuple{maps...}
+end
 
 """
     map_components(f, c::Composite)
 
 Apply `f` to every part of `c` and compose the results that aren't `nothing`.
+A role of `c` is filled, in the result, by the part that comes from the same
+component (module), if there is one.
 """
-map_components(f, c::Composite) = Composite(Tuple(filter(!isnothing, map(f, parts(c)))))
+function map_components(f, c::Composite{P, R}) where {P, R}
+    new_parts = _drop_nothing(map(f, parts(c)))
+    Q = typeof(new_parts)
+    return Composite{Q, _carry_roles(P, R, Q)}(new_parts)
+end
 # ~/~ end
 # ~/~ begin <<docs/src/41-composition.md#composition-records>>[init]
 """

@@ -12,11 +12,17 @@ module X
     @kwdef struct Input
         x::Int = 1
     end
+    struct Output
+        x2::Int
+    end
 end
 
 module Y
     @kwdef struct Input
         y::Int = 2
+    end
+    struct Output
+        y2::Int
     end
 end
 
@@ -65,6 +71,26 @@ default_implementation(::Type{A}) = Z
     @test_throws ErrorException M(w = 1)
     @test_throws ErrorException component(m, Z)
     @test_throws ErrorException record_type(:State, Y, X)
+end
+
+output(p::X.Input) = X.Output(2p.x)
+output(p::Y.Input) = Y.Output(2p.y)
+
+@testset "Procedural map_components" begin
+    m = record_type(:Input, Y, X)(x = 10)
+    o = @inferred map_components(output, m)
+    @test o.x2 == 20 && o.y2 == 4
+    @test (@inferred component(o, A)) isa X.Output
+    @test (@inferred component(o, B)) isa X.Output
+
+    # X contributes nothing, so its roles are dropped
+    d = @inferred map_components(p -> p isa X.Input ? nothing : output(p), m)
+    @test parts(d) == (Y.Output(4),)
+    @test_throws ErrorException component(d, A)
+
+    # roles follow the component, not the position
+    s = map_components(p -> p isa X.Input ? Y.Output(0) : X.Output(1), m)
+    @test component(s, A) === X.Output(1)
 end
 
 module Owner
