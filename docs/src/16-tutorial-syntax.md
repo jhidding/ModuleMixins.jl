@@ -1,7 +1,7 @@
 Tutorial: Syntax
 ================
 
-This tutorial repeats the [previous one](@ref "Tutorial") step by step, using the `@component` macro from `ModuleMixins.Syntactic`. The macro is shorthand only: every `@component` module expands to a plain module plus a few methods of `requires` and `implements`, exactly the ones we wrote by hand before. You can mix both styles.
+This tutorial repeats the [previous one](@ref "Tutorial: Procedures") step by step, using the `@component` macro from `ModuleMixins.Syntactic`. The macro is shorthand only: every `@component` module expands to a plain module plus a few methods of `requires` and `implements`, exactly the ones we wrote by hand before. You can mix both styles.
 
 Composing Structs
 -----------------
