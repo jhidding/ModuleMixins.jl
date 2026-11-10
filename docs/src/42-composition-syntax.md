@@ -67,6 +67,22 @@ end
 
 A component that adds per-facies fields only needs to define its own `struct Facies`. Components that don't contribute to the facies define no such struct.
 
+A struct may have type parameters of its own, like the `Storage` parameter that `record_type` sets by keyword. The record parameters are added after them.
+
+```julia
+# written
+@kwdef struct State{Storage <: AbstractVector{Float64}}
+    facies::Vector{Facies} = []
+    height::Storage
+end
+
+# expanded
+@kwdef struct State{Storage <: AbstractVector{Float64}, Facies}
+    facies::Vector{Facies} = []
+    height::Storage
+end
+```
+
 ## Implementation
 
 !!! details "src/Components/Syntactic.jl"
@@ -207,15 +223,17 @@ function mentioned(names, expr)
 end
 ```
 
-Adding type parameters to the struct head keeps a supertype in place. `record_type` reads every type parameter as the name of a record, so a struct that contains records can't have type parameters of its own.
+Adding type parameters to the struct head keeps a supertype in place. If the struct already has type parameters, the record parameters are appended, except those that were already written by hand.
 
 ```julia
 #| id: syntactic-structs
+parameter_name(p) = Meta.isexpr(p, :<:) || Meta.isexpr(p, :>:) ? p.args[1] : p
+
 function add_parameters(head, params)
     Meta.isexpr(head, :<:) && return Expr(:<:, add_parameters(head.args[1], params), head.args[2])
-    Meta.isexpr(head, :curly) &&
-        error("struct $(head.args[1]) contains records, so it can't have type parameters of its own")
-    return Expr(:curly, head, params...)
+    Meta.isexpr(head, :curly) || return Expr(:curly, head, params...)
+    own = parameter_name.(head.args[2:end])
+    return Expr(:curly, head.args..., filter(!in(own), params)...)
 end
 
 """
@@ -406,12 +424,6 @@ end
 
 @testset "Syntactic errors" begin
     @test_throws ErrorException macroexpand(@__MODULE__, :(@component struct Input end))
-    @test_throws ErrorException macroexpand(@__MODULE__, :(@component module Parametric
-        struct Facies end
-        struct Input{T}
-            facies::Vector{Facies}
-        end
-    end))
     @test_throws ErrorException @eval @component module BadMixin
         @mixin AbstractSource
         struct Input end
@@ -471,6 +483,22 @@ end
     end
 end
 
+@component module Storing
+    @mixin FaciesBase
+    @kwdef struct Facies
+        depth::Float64 = 0.0
+    end
+    @kwdef struct State{Storage <: AbstractVector{Float64}}
+        facies::Vector{Facies} = []
+        level::Storage
+    end
+    # record parameter already written
+    @kwdef struct Input{Facies, Storage}
+        more_facies::Vector{Facies} = []
+        weights::Storage
+    end
+end
+
 @testset "Syntactic records" begin
     @test FaciesBase.Input isa UnionAll
     @test FaciesBase.Facies isa UnionAll
@@ -491,6 +519,16 @@ end
 
     S = record_type(:State, Production, Time)
     @test S(height = 1.0).height == 1.0
+
+    @test Storing.State isa UnionAll
+    @test Storing.State.var.name === :Storage
+    @test Storing.State.body.var.name === :Facies
+    @test Storing.Input.var.name === :Facies
+    @test Storing.Input.body.var.name === :Storage
+    P = record_type(:State, Storing; Storage = Vector{Float64})
+    @test isconcretetype(P)
+    p = P(facies = [(name = "reef", depth = 2.0)], level = [1.0])
+    @test p.level == [1.0] && p.facies[1].name == "reef" && p.facies[1].depth == 2.0
 
     # only the base part
     b = record_type(:Input, FaciesBase)(facies = [(name = "a",)])
@@ -547,4 +585,99 @@ end
 Production.total(m) = 8.0
 facies reef, produces 3.0
 facies lagoon, produces 1.0
+```
+
+## Example: GPU storage
+
+The arrays of a model state can live on a GPU. Each part of the state takes the array type as a type parameter `Storage`, which `record_type` sets for the whole model. The state is built on the host, and moved to the device with `adapt`. The kernel, written with [KernelAbstractions](https://github.com/JuliaGPU/KernelAbstractions.jl), takes the composites as they are: when they are passed to the kernel, Adapt converts their arrays to device arrays once more, and property access works on the device as well.
+
+We use `Float32`, since many (integrated) GPUs don't support `Float64`. The example needs an environment with `Adapt` and `KernelAbstractions`, and `CUDA` or `oneAPI` to run on a GPU:
+
+```shell
+julia --project=<env> examples/composition/gpu.jl [cpu|cuda|oneapi]
+```
+
+```julia
+#| file: examples/composition/gpu.jl
+using ModuleMixins.Syntactic
+using ModuleMixins.Procedural
+using Adapt
+using KernelAbstractions
+
+const backend_name = get(ARGS, 1, "cpu")
+if backend_name == "cuda"
+    using CUDA
+elseif backend_name == "oneapi"
+    using oneAPI
+end
+
+const DeviceArray =
+    backend_name == "cuda" ? CUDA.CuArray :
+    backend_name == "oneapi" ? oneAPI.oneArray :
+    Array
+
+@component module Grid
+    using Adapt
+
+    @kwdef struct Input
+        n::Int
+        dt::Float32 = 0.1f0
+    end
+
+    @kwdef struct State{Storage <: AbstractVector{Float32}}
+        height::Storage
+    end
+
+    Adapt.@adapt_structure State
+end
+
+@component module Growth
+    using Adapt
+    @mixin Grid
+
+    @kwdef struct Input
+        rate::Float32
+    end
+
+    @kwdef struct State{Storage <: AbstractVector{Float32}}
+        factor::Storage
+    end
+
+    Adapt.@adapt_structure State
+end
+
+@kernel function step_kernel!(state, input)
+    i = @index(Global)
+    @inbounds state.height[i] += input.dt * input.rate * state.factor[i]
+end
+
+const Input = record_type(:Input, Growth)
+const HostState = record_type(:State, Growth; Storage = Vector{Float32})
+
+input = Input(n = 1024, rate = 2.0f0)
+host = HostState(
+    height = zeros(Float32, input.n),
+    factor = collect(range(0.0f0, 1.0f0, length = input.n)))
+
+state = adapt(DeviceArray, host)
+println("storage: ", typeof(component(state, Grid).height))
+
+backend = get_backend(state.height)
+step! = step_kernel!(backend)
+for _ in 1:10
+    step!(state, input; ndrange = input.n)
+end
+KernelAbstractions.synchronize(backend)
+
+result = adapt(Array, state)
+println("result isa HostState: ", result isa HostState)
+println("final height: ", result.height[end])
+```
+
+After ten steps of `0.1`, at a growth rate of `2` and a factor of `1`, the last cell has a height of `2`, up to rounding. With CUDA:
+
+```
+storage: CuArray{Float32, 1, CUDACore.DeviceMemory}
+result isa HostState: true
+final height: 2.0000002
 ```

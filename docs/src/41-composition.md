@@ -240,7 +240,19 @@ Records can contain other records. In CarboKitten, components contribute fields 
 end
 ```
 
-Inside `Input`, `Facies` now stands for the composite of all `Facies` parts in the model. `record_type` builds that composite and substitutes it for the parameter. This means every type parameter of a part has to be a record name. A record that (indirectly) contains itself is an error.
+Inside `Input`, `Facies` now stands for the composite of all `Facies` parts in the model. `record_type` builds that composite and substitutes it for the parameter. A record that (indirectly) contains itself is an error.
+
+A part can also have type parameters that are not records. These are set by keyword arguments to `record_type`, and are matched by name. The typical use is storage: on a GPU, the arrays in a model's state have a different type than on the CPU, and a library like [Adapt](https://github.com/JuliaGPU/Adapt.jl) needs the field types to be parameters to convert between the two.
+
+```julia
+@kwdef struct State{Storage <: AbstractMatrix{Float64}}
+    height::Storage
+end
+
+const CPUState = record_type(:State, Model; Storage = Matrix{Float64})
+```
+
+Components that use the same parameter name share one setting, so a single keyword switches the storage of a whole model. Every type parameter must either name a record, or be given as a keyword, so that a record type is always concrete. A parameter that does both is ambiguous and also an error. Keywords that no part uses are ignored, so the same keywords can be passed for every record of a model.
 
 `record_type` computes the closure, resolves every role that a component in the model requires, and checks that no field name is defined by two parts of a record, since forwarding would be ambiguous otherwise.
 
@@ -279,28 +291,44 @@ function check_unique_fields(types)
 end
 
 """
-    record_type(name::Symbol, roots::Module...)
+    record_type(name::Symbol, roots::Module...; parameters...)
 
 The `Composite` type of record `name`, for the closure of `roots`. It has one
 part for every component that defines a type `name`, in dependency order.
+
+A type parameter of a part that is named after a record is filled with the
+composite type of that record. Any other type parameter is taken from
+`parameters`, by name.
 """
-function record_type(name::Symbol, roots::Module...)
+function record_type(name::Symbol, roots::Module...; parameters...)
     components = closure(roots...)
     roles = unique(R for M in components for R in requires(M) if R isa Type)
     resolved = [R => resolve(R, roots) for R in roles]
-    return _record_type(name, components, resolved, Symbol[])
+    return _record_type(name, components, resolved, NamedTuple(parameters), Symbol[])
 end
 
-function _record_type(name, components, resolved, visiting)
+is_record(name, components) = any(M -> record_part(M, name) !== nothing, components)
+
+function _record_type(name, components, resolved, parameters, visiting)
     name in visiting && error("record $(name) contains itself: $(join([visiting; name], " -> "))")
     owners = [M for M in components if record_part(M, name) !== nothing]
     isempty(owners) && error("no component defines a record part `$(name)`")
+
+    function parameter(P, n)
+        record = is_record(n, components)
+        given = haskey(parameters, n)
+        record && given &&
+            error("type parameter `$(n)` of $(P) names a record, and is also given as a keyword")
+        record && return _record_type(n, components, resolved, parameters, visiting)
+        given && return parameters[n]
+        error("type parameter `$(n)` of $(P) is not a record, and is not given as a keyword to `record_type`")
+    end
 
     push!(visiting, name)
     record_parts = map(owners) do M
         P = record_part(M, name)
         inner = type_parameter_names(P)
-        isempty(inner) ? P : P{map(n -> _record_type(n, components, resolved, visiting), inner)...}
+        isempty(inner) ? P : P{map(n -> parameter(P, n), inner)...}
     end
     pop!(visiting)
 
@@ -331,6 +359,27 @@ function (::Type{Composite{T, R}})(; kwargs...) where {T <: Tuple, R <: Tuple}
 end
 
 Base.convert(::Type{C}, x::NamedTuple) where {C <: Composite} = C(; x...)
+```
+
+### Adapt
+
+[Adapt](https://github.com/JuliaGPU/Adapt.jl) converts the storage of nested structures, for instance to move a model state to the GPU, or to turn arrays into device arrays when they are passed to a kernel. A composite is adapted by adapting each of its parts. The result is again a composite, of a different type, but with the same role map. Each part has to support Adapt itself, typically by `Adapt.@adapt_structure`. A part that doesn't is returned unchanged, as Adapt does by default.
+
+This method lives in a package extension, so `ModuleMixins` doesn't depend on Adapt.
+
+```julia
+#| file: ext/ModuleMixinsAdaptExt.jl
+module ModuleMixinsAdaptExt
+
+using Adapt: Adapt, adapt
+using ModuleMixins.Procedural: Composite, parts
+
+function Adapt.adapt_structure(to, c::Composite{T, R}) where {T, R}
+    adapted = map(p -> adapt(to, p), parts(c))
+    return Composite{typeof(adapted), R}(adapted)
+end
+
+end
 ```
 
 ### Tests
@@ -447,6 +496,65 @@ requires(::Val{Extra}) = (Owner,)
     @test_throws ErrorException record_type(:Input, Owner)(items = [(weight = 1.0,)])
 
     @test_throws ErrorException record_type(:Input, Loop)
+end
+```
+
+Components `Grid` and `Growth` both have a type parameter `Storage`, and `Grid` also contains a record. To test Adapt, we use an adaptor that converts `Float64` vectors to `Float32`.
+
+```julia
+#| file: test/ProceduralSpec.jl
+module Grid
+    @kwdef struct Cell
+        label::String = ""
+    end
+    @kwdef struct State{Cell, Storage <: AbstractVector{<:AbstractFloat}}
+        cells::Vector{Cell} = []
+        height::Storage
+    end
+end
+
+module Growth
+    @kwdef struct Cell
+        rate::Float64 = 0.0
+    end
+    @kwdef mutable struct State{Storage}
+        growth::Storage
+    end
+end
+
+requires(::Val{Growth}) = (Grid,)
+
+module Clash
+    @kwdef struct State{Storage}
+        x::Storage
+    end
+    struct Storage end
+end
+
+using Adapt
+
+Adapt.@adapt_structure Grid.State
+Adapt.@adapt_structure Growth.State
+
+struct ToFloat32 end
+Adapt.adapt_storage(::ToFloat32, x::Vector{Float64}) = Float32.(x)
+
+@testset "Procedural type parameters" begin
+    S = record_type(:State, Growth; Storage = Vector{Float64}, Unused = Int)
+    @test isconcretetype(S)
+    s = S(cells = [(label = "a", rate = 1.0)], height = [1.0, 2.0], growth = [0.5, 0.5])
+    @test s.height isa Vector{Float64}
+    @test s.cells[1].rate == 1.0
+    @test (@inferred (s -> s.height[2])(s)) == 2.0
+
+    @test_throws ErrorException record_type(:State, Growth)  # Storage not given
+    @test_throws TypeError record_type(:State, Growth; Storage = Vector{Int})  # violates bound
+    @test_throws ErrorException record_type(:State, Clash; Storage = Int)  # record and keyword
+
+    t = adapt(ToFloat32(), s)
+    @test t.height isa Vector{Float32} && t.growth == Float32[0.5, 0.5]
+    @test t.cells == s.cells
+    @test component(t, Growth) isa Growth.State{Vector{Float32}}
 end
 end
 ```
