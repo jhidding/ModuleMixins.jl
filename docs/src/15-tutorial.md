@@ -1,5 +1,5 @@
-Tutorial
-========
+Tutorial: Procedures
+====================
 
 !!! note "New System"
     The new `ModuleMixins` system in version 0.4 has two components: a procedural part completely based on composition and dispatch, and a syntactic part that relieves some of the boilerplate.
